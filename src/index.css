@@ -266,3 +266,34 @@
 .text-responsive-lg {
   @apply text-base sm:text-lg;
 }
+
+/* Theme-adaptive Yeti Logo */
+.yeti-logo {
+  object-fit: contain;
+  transition: filter 0.3s ease, width 0.3s ease, height 0.3s ease;
+}
+
+/* Dark theme - make logo white */
+.dark .yeti-logo,
+[data-theme="dark"] .yeti-logo {
+  filter: brightness(0) invert(1);
+}
+
+/* Light theme - keep original colors */
+.light .yeti-logo,
+[data-theme="light"] .yeti-logo {
+  filter: none;
+}
+
+/* Auto-detect system theme */
+@media (prefers-color-scheme: dark) {
+  .yeti-logo {
+    filter: brightness(0) invert(1);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .yeti-logo {
+    filter: none;
+  }
+}

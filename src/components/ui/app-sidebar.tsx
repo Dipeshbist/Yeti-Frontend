@@ -44,7 +44,7 @@ export function AppSidebar() {
           className="flex items-center gap-3 p-6 border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           title="Go to Dashboard"
         >
-          <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
+          {/* <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
             <Zap className="w-4 h-4 text-primary-foreground" />
           </div>
           {!collapsed && (
@@ -56,7 +56,29 @@ export function AppSidebar() {
                 Industrial IoT
               </p>
             </div>
+          )} */}
+
+          {/* Replace the Zap icon with your Yeti logo */}
+          <div className="flex items-center justify-center">
+            <img
+              src="/yeti-logo.png"
+              alt="Yeti Logo"
+              className={`yeti-logo transition-all duration-300 ${
+                collapsed ? "w-8 h-6" : "w-12 h-8"
+              }`}
+            />
+          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="font-bold text-lg text-sidebar-foreground">
+                Yeti Insight
+              </h1>
+              <p className="text-xs text-sidebar-foreground/60">
+                Industrial IoT
+              </p>
+            </div>
           )}
+          
         </div>
 
         <SidebarGroup className="px-4 py-6">
