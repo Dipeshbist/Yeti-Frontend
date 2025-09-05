@@ -18,12 +18,12 @@ export default defineConfig(({ mode }) => ({
     },
   },
 
-  // Add this for SPA routing
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
-  },
+  // // Add this for SPA routing
+  // build: {
+  //   rollupOptions: {
+  //     output: {
+  //       manualChunks: undefined,
+  //     },
+  //   },
+  // },
 }));
