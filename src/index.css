@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Core Industrial Palette */
+    /* Core Industrial Palette - Dark Theme */
     --background: 217 24% 7%;
     --foreground: 217 24% 95%;
 
@@ -48,13 +48,13 @@
 
     --radius: 0.75rem;
 
-    /* Industrial Gradients */
+    /* Industrial Gradients - Dark */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
     --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(217 24% 11%));
     --gradient-accent: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)));
     --gradient-status: linear-gradient(45deg, hsl(var(--success)), hsl(var(--accent)));
 
-    /* Industrial Shadows */
+    /* Industrial Shadows - Dark */
     --shadow-industrial: 0 4px 20px hsl(var(--primary) / 0.15);
     --shadow-glow: 0 0 30px hsl(var(--primary-glow) / 0.3);
     --shadow-card: 0 8px 32px hsl(217 24% 5% / 0.4);
@@ -73,6 +73,70 @@
     --sidebar-border: 217 24% 18%;
     --sidebar-ring: 199 89% 48%;
   }
+
+  .light {
+    /* Core Light Palette - FIXED */
+    --background: 0 0% 100%;
+    --foreground: 217 24% 15%;
+    
+    /* Cards should be white/light gray, not dark */
+    --card: 0 0% 98%;
+    --card-foreground: 217 24% 15%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 24% 15%;
+    
+    /* Primary - Electric Blue (stays same for brand consistency) */
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 199 89% 65%;
+    
+    /* Secondary - Light Steel */
+    --secondary: 217 24% 90%;
+    --secondary-foreground: 217 24% 15%;
+    
+    /* Muted - Light Gray */
+    --muted: 217 24% 96%;
+    --muted-foreground: 217 12% 45%;
+    
+    /* Accent - Cyan Tech */
+    --accent: 188 95% 52%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Status Colors (adjusted for light theme) */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Interface Elements - FIXED */
+    --border: 217 24% 85%;
+    --input: 217 24% 95%;
+    --ring: 199 89% 48%;
+    
+    /* Light Theme Gradients - ADDED */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(0 0% 100%));
+    --gradient-accent: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)));
+    --gradient-status: linear-gradient(45deg, hsl(var(--success)), hsl(var(--accent)));
+    
+    /* Light Theme Shadows - ADDED */
+    --shadow-industrial: 0 4px 20px hsl(var(--primary) / 0.1);
+    --shadow-glow: 0 0 30px hsl(var(--primary-glow) / 0.2);
+    --shadow-card: 0 2px 12px hsl(217 24% 15% / 0.08);
+    
+    /* Sidebar - Light Theme */
+    --sidebar-background: 217 24% 98%;
+    --sidebar-foreground: 217 24% 15%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 24% 90%;
+    --sidebar-accent-foreground: 217 24% 15%;
+    --sidebar-border: 217 24% 85%;
+    --sidebar-ring: 199 89% 48%;
+  }
 }
 
 @layer base {
@@ -85,14 +149,15 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Industrial Component Styles */
+  /* Industrial Component Styles - IMPROVED */
   .industrial-card {
-    @apply bg-card border border-border rounded-lg shadow-[var(--shadow-card)];
+    @apply bg-card border border-border rounded-lg;
     background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
   }
 
   .industrial-button {
-    @apply bg-primary hover:bg-primary/90 text-primary-foreground;
+    @apply text-primary-foreground;
     background: var(--gradient-primary);
     box-shadow: var(--shadow-industrial);
     transition: var(--transition-smooth);
@@ -109,7 +174,7 @@
   }
 
   .telemetry-card {
-    @apply industrial-card p-6 hover:border-primary/30;
+    @apply industrial-card p-4 hover:border-primary/30;
     transition: var(--transition-smooth);
   }
 
@@ -133,4 +198,71 @@
     @apply bg-sidebar-primary text-sidebar-primary-foreground;
     box-shadow: var(--shadow-industrial);
   }
+  
+  /* Additional utility classes for dashboard components */
+  .dashboard-metric-card {
+    @apply industrial-card p-3 text-center;
+    background: var(--gradient-card);
+  }
+  
+  .dashboard-metric-value {
+    @apply text-2xl font-bold mb-1;
+    color: hsl(var(--primary));
+  }
+  
+  .dashboard-metric-label {
+    @apply text-xs font-medium;
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .dashboard-section-title {
+    @apply text-xs font-semibold mb-3;
+    color: hsl(var(--foreground));
+  }
+
+  .compact-metric-card {
+  @apply industrial-card p-3 text-center;
+  background: var(--gradient-card);
+}
+
+.compact-metric-value {
+  @apply text-lg font-bold mb-1;
+  color: hsl(var(--primary));
+}
+
+.compact-icon-container {
+  @apply w-8 h-8 rounded-lg flex items-center justify-center;
+}
+
+.compact-icon {
+  @apply w-4 h-4;
+}
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .sidebar-collapsed {
+    width: 0;
+    transform: translateX(-100%);
+  }
+}
+
+.responsive-table {
+  overflow-x: auto;
+}
+
+.text-responsive-sm {
+  @apply text-xs sm:text-sm;
+}
+
+.text-responsive-base {
+  @apply text-sm sm:text-base;
+}
+
+.text-responsive-lg {
+  @apply text-base sm:text-lg;
 }

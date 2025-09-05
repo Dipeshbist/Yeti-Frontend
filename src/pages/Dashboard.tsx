@@ -1,150 +1,317 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { AppLayout } from "@/components/layout/AppLayout"
-import { 
-  Cpu, 
-  Activity, 
-  Thermometer, 
-  Zap, 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { AppLayout } from "@/components/layout/AppLayout";
+import {
+  Cpu,
+  Activity,
+  Thermometer,
+  Zap,
   TrendingUp,
-  MoreVertical,
-  Eye,
-  Settings
-} from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+  RefreshCw,
+  Droplets,
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api.ts"; 
 
 interface CustomerDevice {
-  id: string
-  name: string
-  type: string
-  status: "online" | "offline" | "warning"
-  lastSeen: string
-  location: string
+  id: string;
+  name: string;
+  type: string;
+  status: "online" | "offline" | "warning";
+  lastSeen: string;
+  location: string;
   telemetry: {
-    temperature?: number
-    humidity?: number
-    voltage?: number
-  }
+    temperature?: number;
+    humidity?: number;
+    voltage?: number;
+  };
 }
 
 interface CustomerDashboard {
-  id: string
-  name: string
-  description: string
-  deviceCount: number
-  lastUpdated: string
+  id: string;
+  name: string;
+  description: string;
+  deviceCount: number;
+  lastUpdated: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  customerId: string;
 }
 
 const Dashboard = () => {
-  const [devices, setDevices] = useState<CustomerDevice[]>([])
-  const [dashboards, setDashboards] = useState<CustomerDashboard[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const navigate = useNavigate()
+const handleRefresh = async () => {
+  await initializeDashboard();
+};
+  const [devices, setDevices] = useState<CustomerDevice[]>([]);
+  const [dashboards, setDashboards] = useState<CustomerDashboard[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const customerId = localStorage.getItem("customerId")
-    if (!customerId) {
-      navigate("/")
-      return
+    // Check if user has valid JWT token
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
+
+    if (!token || !userData) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to access the dashboard",
+        variant: "destructive",
+        duration: 2000,
+      });
+      navigate("/");
+      return;
     }
 
-    fetchCustomerData(customerId)
-  }, [navigate])
-
-  const fetchCustomerData = async (customerId: string) => {
     try {
-      setIsLoading(true)
-      
-      // Mock data - replace with actual API calls
-      setTimeout(() => {
-        setDevices([
-          {
-            id: "f0975620-7f26-11f0-a605-6b4e0db61b32",
-            name: "Production Line A - Sensor 1",
-            type: "Temperature Sensor",
-            status: "online",
-            lastSeen: "2 minutes ago",
-            location: "Factory Floor 1",
-            telemetry: { temperature: 24.5, humidity: 45.2, voltage: 12.1 }
-          },
-          {
-            id: "78d99dc0-8244-11f0-a605-6b4e0db61b32",
-            name: "HVAC Control Unit",
-            type: "Climate Controller",
-            status: "online",
-            lastSeen: "30 seconds ago",
-            location: "Building B",
-            telemetry: { temperature: 22.1, humidity: 38.7, voltage: 11.8 }
-          },
-          {
-            id: "device-3",
-            name: "Conveyor Belt Monitor",
-            type: "Motion Sensor",
-            status: "warning",
-            lastSeen: "5 minutes ago",
-            location: "Assembly Line",
-            telemetry: { temperature: 28.3, voltage: 11.2 }
-          }
-        ])
-
-        setDashboards([
-          {
-            id: "dash-1",
-            name: "Production Overview",
-            description: "Main production line monitoring",
-            deviceCount: 12,
-            lastUpdated: "2 minutes ago"
-          },
-          {
-            id: "dash-2", 
-            name: "Environmental Control",
-            description: "HVAC and climate monitoring",
-            deviceCount: 8,
-            lastUpdated: "1 minute ago"
-          }
-        ])
-        
-        setIsLoading(false)
-      }, 1000)
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      initializeDashboard();
     } catch (error) {
+      console.error("Invalid user data:", error);
+      handleLogout();
+    }
+  }, [navigate]);
+
+const handleLogout = () => {
+  // Clear all stored data
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("customerId");
+  navigate("/");
+};
+
+  const initializeDashboard = async () => {
+    try {
+      setIsLoading(true);
+
+      // Verify token is still valid by getting user profile
+      const profileResult = await api.getProfile();
+
+      if (!profileResult.success) {
+        throw new Error("Token expired or invalid");
+      }
+
+      // Fetch user's data using JWT-authenticated endpoints
+      await fetchUserData();
+    } catch (error) {
+      console.error("Dashboard initialization error:", error);
+
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        handleLogout();
+        return;
+      }
+
       toast({
         title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      })
-      setIsLoading(false)
+        description: "Failed to initialize dashboard. Please try refreshing.",
+        variant: "destructive",
+        duration: 2000,
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      console.log("Fetching user's dashboards and devices...");
+
+      // All API calls now use JWT token automatically
+      const [dashboardsResult, devicesResult] = await Promise.all([
+        api.getMyDashboards(),
+        api.getMyDevices(),
+      ]);
+
+      console.log("Dashboards result:", dashboardsResult);
+      console.log("Devices result:", devicesResult);
+
+      // Transform dashboards data
+      if (dashboardsResult.data) {
+        const transformedDashboards: CustomerDashboard[] =
+          dashboardsResult.data.map((dash: any) => ({
+            id: dash.id.id,
+            name: dash.title,
+            description: "ThingsBoard Dashboard",
+            deviceCount: devicesResult.totalElements || 0,
+            lastUpdated: "Just now",
+          }));
+        setDashboards(transformedDashboards);
+      }
+
+      // Transform and fetch telemetry for devices
+      if (devicesResult.data) {
+        const devicesWithTelemetry: CustomerDevice[] = [];
+
+        console.log(`Processing ${devicesResult.data.length} devices...`);
+
+        for (const deviceInfo of devicesResult.data) {
+          try {
+            console.log(
+              `Fetching telemetry for device: ${deviceInfo.name} (${deviceInfo.id.id})`
+            );
+
+ const telemetryResult = await api.getDeviceLiveData(
+   deviceInfo.id.id,
+   undefined,
+   30
+ );
+            console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
+
+            const transformedDevice: CustomerDevice = {
+              id: deviceInfo.id.id,
+              name: deviceInfo.name,
+              type: deviceInfo.type,
+              status: deviceInfo.active ? "online" : "offline",
+              lastSeen: deviceInfo.createdTime
+                ? formatRelativeTime(deviceInfo.createdTime)
+                : "Unknown",
+              location: deviceInfo.customerTitle || "No location set",
+              telemetry: {
+                temperature: telemetryResult.telemetry?.temperature?.value,
+                humidity: telemetryResult.telemetry?.humidity?.value,
+                voltage:
+                  telemetryResult.telemetry?.voltage?.value ||
+                  telemetryResult.telemetry?.['"Voltage V1N"']?.value,
+              },
+            };
+
+            // Set warning status if device has no recent telemetry
+            if (
+              !telemetryResult.telemetry ||
+              Object.keys(telemetryResult.telemetry).length === 0
+            ) {
+              transformedDevice.status = "warning";
+            }
+
+            devicesWithTelemetry.push(transformedDevice);
+            console.log("Transformed device:", transformedDevice);
+          } catch (telemetryError) {
+            console.error(
+              `Telemetry fetch failed for ${deviceInfo.name}:`,
+              telemetryError
+            );
+
+            // Add device without telemetry data
+            const transformedDevice: CustomerDevice = {
+              id: deviceInfo.id.id,
+              name: deviceInfo.name,
+              type: deviceInfo.type,
+              status: "warning",
+              lastSeen: "No telemetry data",
+              location: deviceInfo.customerTitle || "No location set",
+              telemetry: {},
+            };
+            devicesWithTelemetry.push(transformedDevice);
+          }
+        }
+
+        setDevices(devicesWithTelemetry);
+        console.log("Final devices state:", devicesWithTelemetry);
+
+if (devicesWithTelemetry.length === 0) {
+  toast({
+    title: "No Devices Found",
+    description: "No devices found for your account.",
+    variant: "destructive",
+    duration: 2000,
+  });
+}
+      }
+    } catch (error) {
+      console.error("User data fetch error:", error);
+
+      // Check if it's an authentication error
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        handleLogout();
+        return;
+      }
+
+      toast({
+        title: "API Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch data from ThingsBoard",
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
+  };
+
+  const formatRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${diffDays} days ago`;
+  };
+
+  const handleViewDashboard = (dashboardId: string) => {
+    navigate(`/dashboard/${dashboardId}`);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "online": return "bg-success"
-      case "warning": return "bg-warning"
-      case "offline": return "bg-destructive"
-      default: return "bg-muted"
+      case "online":
+        return "bg-success";
+      case "warning":
+        return "bg-warning";
+      case "offline":
+        return "bg-destructive";
+      default:
+        return "bg-muted";
     }
-  }
+  };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "online": return "Online"
-      case "warning": return "Warning"
-      case "offline": return "Offline"
-      default: return "Unknown"
+      case "online":
+        return "Online";
+      case "warning":
+        return "Warning";
+      case "offline":
+        return "Offline";
+      default:
+        return "Unknown";
     }
-  }
+  };
 
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="p-6 space-y-8">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[1,2,3,4].map(i => (
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="industrial-card animate-pulse">
-                <CardContent className="p-6">
+                <CardContent className="p-3">
                   <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
                   <div className="h-8 bg-muted rounded w-1/2"></div>
                 </CardContent>
@@ -153,137 +320,89 @@ const Dashboard = () => {
           </div>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   return (
     <AppLayout>
       <div className="p-6 space-y-8">
-        {/* Header */}
+        {/* Header with user info */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard Overview</h1>
-            <p className="text-muted-foreground">Monitor your industrial devices and systems</p>
+            <h1 className="text-xl font-bold text-foreground">
+              Welcome, {user?.firstName || user?.email}!
+            </h1>
+            <div className="flex items-center gap-4 mt-2">
+              <Badge variant="default">Authenticated</Badge>
+            </div>
           </div>
-          <Button variant="outline" className="gap-2">
-            <Settings className="w-4 h-4" />
-            Settings
-          </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Card className="telemetry-card">
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Devices</p>
-                  <p className="text-2xl font-bold text-foreground">{devices.length}</p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <Cpu className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="telemetry-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Online Devices</p>
-                  <p className="text-2xl font-bold text-success">
-                    {devices.filter(d => d.status === "online").length}
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Total Devices
+                  </p>
+                  <p className="text-base sm:text-lg font-bold text-foreground">
+                    {devices.length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-success/20 flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-success" />
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Cpu className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="telemetry-card">
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Avg Temperature</p>
-                  <p className="text-2xl font-bold text-accent">
-                    {(devices.reduce((acc, d) => acc + (d.telemetry.temperature || 0), 0) / devices.length).toFixed(1)}°C
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Online Devices
+                  </p>
+                  <p className="text-lg font-bold text-success">
+                    {devices.filter((d) => d.status === "online").length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-accent/20 flex items-center justify-center">
-                  <Thermometer className="w-6 h-6 text-accent" />
+                <div className="w-8 h-8 rounded-lg bg-success/20 flex items-center justify-center">
+                  <Activity className="w-4 h-4 text-success" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="telemetry-card">
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active Alerts</p>
-                  <p className="text-2xl font-bold text-warning">
-                    {devices.filter(d => d.status === "warning").length}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Active Alerts
+                  </p>
+                  <p className="text-lg font-bold text-warning">
+                    {devices.filter((d) => d.status === "warning").length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-warning/20 flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-warning" />
+                <div className="w-8 h-8 rounded-lg bg-warning/20 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-warning" />
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Dashboards Section */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-foreground">Your Dashboards</h2>
-            <Button className="industrial-button">
-              Create Dashboard
-            </Button>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {dashboards.map((dashboard) => (
-              <Card key={dashboard.id} className="telemetry-card">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{dashboard.name}</CardTitle>
-                      <CardDescription>{dashboard.description}</CardDescription>
-                    </div>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Badge variant="secondary">{dashboard.deviceCount} devices</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Updated {dashboard.lastUpdated}
-                      </span>
-                    </div>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Eye className="w-4 h-4" />
-                      View
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </div>
 
         {/* Devices Section */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-foreground">Recent Devices</h2>
-            <Button 
-              variant="outline" 
+            <h2 className="text-lg font-semibold text-foreground">
+              Your Devices
+            </h2>
+            <Button
+              variant="outline"
               onClick={() => navigate("/devices")}
               className="gap-2"
             >
@@ -292,52 +411,104 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            {devices.map((device) => (
-              <Card key={device.id} className="telemetry-card cursor-pointer"
-                    onClick={() => navigate(`/devices/${device.id}`)}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-base">{device.name}</CardTitle>
-                      <CardDescription>{device.type}</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`status-indicator ${getStatusColor(device.status)}`}></div>
-                      <span className="text-xs text-muted-foreground">
-                        {getStatusText(device.status)}
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Location:</span>
-                      <span className="text-foreground">{device.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Last Seen:</span>
-                      <span className="text-foreground">{device.lastSeen}</span>
-                    </div>
-                    
-                    {device.telemetry.temperature && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Thermometer className="w-4 h-4 text-accent" />
-                        <span className="text-accent font-medium">
-                          {device.telemetry.temperature}°C
+          {devices.length === 0 ? (
+            <Card className="telemetry-card">
+              <CardContent className="p-8 text-center">
+                <Cpu className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Devices Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  No devices are currently available for your account. Make sure
+                  your devices are properly configured and assigned in
+                  ThingsBoard.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {devices.slice(0, 6).map((device) => (
+                <Card
+                  key={device.id}
+                  className="telemetry-card cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate(`/devices/${device.id}`)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base">
+                          {device.name}
+                        </CardTitle>
+                        <CardDescription>{device.type}</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`status-indicator ${getStatusColor(
+                            device.status
+                          )}`}
+                        ></div>
+                        <span className="text-xs text-muted-foreground">
+                          {getStatusText(device.status)}
                         </span>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Location:</span>
+                        <span className="text-foreground">
+                          {device.location}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Last Seen:
+                        </span>
+                        <span className="text-foreground">
+                          {device.lastSeen}
+                        </span>
+                      </div>
+
+                      {/* Display available telemetry */}
+                      <div className="flex flex-wrap gap-2">
+                        {device.telemetry.temperature !== undefined && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Thermometer className="w-3 h-3 text-accent" />
+                            <span className="text-accent font-medium">
+                              {device.telemetry.temperature.toFixed(1)}°C
+                            </span>
+                          </div>
+                        )}
+
+                        {device.telemetry.humidity !== undefined && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Droplets className="w-3 h-3 text-primary" />
+                            <span className="text-primary font-medium">
+                              {device.telemetry.humidity.toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
+
+                        {device.telemetry.voltage !== undefined && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Zap className="w-3 h-3 text-warning" />
+                            <span className="text-warning font-medium">
+                              {device.telemetry.voltage.toFixed(1)}V
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;
+
+
