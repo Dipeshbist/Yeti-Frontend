@@ -8,9 +8,15 @@
 //     ? "http://localhost:8080"
 //     : `http://${window.location.hostname}:8080`;
 
-const BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'http://152.42.209.180:8000'  // Your actual backend server
-  : 'http://localhost:8000';      // Local development
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://api-yeti.nepaldigital.systems" // Your actual backend server:
+    : "http://localhost:8000";      // Local development
+
+  // const BASE_URL =
+  //   process.env.NODE_ENV === "production"
+  //     ? "http://152.42.209.180:8000" // Your actual backend server
+  //     : "http://localhost:8000"; 
 // Get token from localStorage
 const getAuthToken = () => localStorage.getItem('token');
 
