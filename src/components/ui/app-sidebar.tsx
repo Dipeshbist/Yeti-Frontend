@@ -68,16 +68,16 @@ export function AppSidebar() {
               }`}
             />
           </div>
-          {!collapsed && (
+          {/* {!collapsed && (
             <div>
-              {/* <h1 className="font-bold text-lg text-sidebar-foreground">
+              <h1 className="font-bold text-lg text-sidebar-foreground">
                 Yeti Insight
-              </h1> */}
+              </h1>
               <p className="text-xs text-sidebar-foreground/60">
                 Industrial IoT
               </p>
             </div>
-          )}
+          )} */}
 
         </div>
 
