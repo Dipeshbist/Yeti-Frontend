@@ -8,8 +8,6 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5143,
-    // Add this for SPA fallback
-    historyApiFallback: true,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(
     Boolean
@@ -17,6 +15,15 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+
+  // Add this for SPA routing
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
     },
   },
 }));
