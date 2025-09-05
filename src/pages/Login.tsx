@@ -42,10 +42,10 @@ const Login = () => {
     try {
       //  const apiUrl = `http://localhost:8080`;
       // Dynamic URL that works in both development and production
-      const apiUrl =
-        window.location.hostname === "localhost"
-          ? "http://localhost:8000" // Your local backend
-          : `http://${window.location.hostname}:8000`; // Your deployed backend
+    const apiUrl =
+      process.env.NODE_ENV === "production"
+        ? "http://152.42.209.180:8000"
+        : "http://localhost:8000";
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: "POST",
         headers: {
@@ -176,6 +176,7 @@ const Login = () => {
 };
 
 export default Login;
+
 
 
 
