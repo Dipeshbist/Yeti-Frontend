@@ -433,6 +433,9 @@ const fetchUserData = async () => {
         return "Unknown";
     }
   };
+  const onlineCount = devices.filter((d) => d.status === "online").length;
+  const offlineCount = devices.filter((d) => d.status === "offline").length;
+
 
   if (isLoading) {
     return (
@@ -469,8 +472,8 @@ const fetchUserData = async () => {
         </div>
 
         {/* Stats Cards */}
-        {/* <div className="grid gap-3 md:grid-cols-2"> */}
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
+          {/* Total */}
           <Card className="telemetry-card">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
@@ -489,6 +492,7 @@ const fetchUserData = async () => {
             </CardContent>
           </Card>
 
+          {/* Online */}
           <Card className="telemetry-card">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
@@ -497,7 +501,7 @@ const fetchUserData = async () => {
                     Online Devices
                   </p>
                   <p className="text-lg font-bold text-success">
-                    {devices.filter((d) => d.status === "online").length}
+                    {onlineCount}
                   </p>
                 </div>
                 <div className="w-8 h-8 rounded-lg bg-success/20 flex items-center justify-center">
@@ -507,23 +511,24 @@ const fetchUserData = async () => {
             </CardContent>
           </Card>
 
-          {/* <Card className="telemetry-card">
+          {/* Offline */}
+          <Card className="telemetry-card">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Active Alerts
+                    Offline Devices
                   </p>
-                  <p className="text-lg font-bold text-warning">
-                    {devices.filter((d) => d.status === "warning").length}
+                  <p className="text-lg font-bold text-destructive">
+                    {offlineCount}
                   </p>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-warning/20 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-warning" />
+                <div className="w-8 h-8 rounded-lg bg-destructive/20 flex items-center justify-center">
+                  <Cpu className="w-4 h-4 text-destructive" />
                 </div>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
 
         {/* Devices Section */}
@@ -570,18 +575,30 @@ const fetchUserData = async () => {
                         </CardTitle>
                         <CardDescription>{device.type}</CardDescription>
                       </div>
-                      {/* <div className="flex items-center gap-2">
+
+                      {/* Status badge (top right) */}
+                      <div className="flex items-center gap-2">
                         <div
-                          className={`status-indicator ${getStatusColor(
-                            device.status
-                          )}`}
-                        ></div>
-                        <span className="text-xs text-muted-foreground">
-                          {getStatusText(device.status)}
-                        </span>
-                      </div> */}
+                          className={`w-2 h-2 rounded-full ${
+                            device.status === "online"
+                              ? "bg-success"
+                              : "bg-destructive"
+                          }`}
+                        />
+                        <Badge
+                          variant={
+                            device.status === "online"
+                              ? "default"
+                              : "destructive"
+                          }
+                          className="capitalize"
+                        >
+                          {device.status}
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
+
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
