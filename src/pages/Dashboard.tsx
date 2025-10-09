@@ -132,134 +132,264 @@ const handleLogout = () => {
     }
   };
 
-  const fetchUserData = async () => {
-    try {
-      console.log("Fetching user's dashboards and devices...");
+//   const fetchUserData = async () => {
+//     try {
+//       console.log("Fetching user's dashboards and devices...");
 
-      // All API calls now use JWT token automatically
-      const [dashboardsResult, devicesResult] = await Promise.all([
-        api.getMyDashboards(),
-        api.getMyDevices(),
-      ]);
+//       // All API calls now use JWT token automatically
+//       const [dashboardsResult, devicesResult] = await Promise.all([
+//         api.getMyDashboards(),
+//         api.getMyDevices(),
+//       ]);
 
-      console.log("Dashboards result:", dashboardsResult);
-      console.log("Devices result:", devicesResult);
+//       console.log("Dashboards result:", dashboardsResult);
+//       console.log("Devices result:", devicesResult);
 
-      // Transform dashboards data
-      if (dashboardsResult.data) {
-        const transformedDashboards: CustomerDashboard[] =
-          dashboardsResult.data.map((dash: any) => ({
-            id: dash.id.id,
-            name: dash.title,
-            description: "ThingsBoard Dashboard",
-            deviceCount: devicesResult.totalElements || 0,
-            lastUpdated: "Just now",
-          }));
-        setDashboards(transformedDashboards);
-      }
+//       // Transform dashboards data
+//       if (dashboardsResult.data) {
+//         const transformedDashboards: CustomerDashboard[] =
+//           dashboardsResult.data.map((dash: any) => ({
+//             id: dash.id.id,
+//             name: dash.title,
+//             description: "ThingsBoard Dashboard",
+//             deviceCount: devicesResult.totalElements || 0,
+//             lastUpdated: "Just now",
+//           }));
+//         setDashboards(transformedDashboards);
+//       }
 
-      // Transform and fetch telemetry for devices
-      if (devicesResult.data) {
-        const devicesWithTelemetry: CustomerDevice[] = [];
+//       // Transform and fetch telemetry for devices
+//       if (devicesResult.data) {
+//         const devicesWithTelemetry: CustomerDevice[] = [];
 
-        console.log(`Processing ${devicesResult.data.length} devices...`);
+//         console.log(`Processing ${devicesResult.data.length} devices...`);
 
-        for (const deviceInfo of devicesResult.data) {
-          try {
-            console.log(
-              `Fetching telemetry for device: ${deviceInfo.name} (${deviceInfo.id.id})`
-            );
+//         for (const deviceInfo of devicesResult.data) {
+//           try {
+//             console.log(
+//               `Fetching telemetry for device: ${deviceInfo.name} (${deviceInfo.id.id})`
+//             );
 
- const telemetryResult = await api.getDeviceLiveData(
-   deviceInfo.id.id,
-   undefined,
-   30
- );
-            console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
+//  const telemetryResult = await api.getDeviceLiveData(
+//    deviceInfo.id.id,
+//    undefined,
+//    30
+//  );
+//             console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
 
-            const transformedDevice: CustomerDevice = {
-              id: deviceInfo.id.id,
-              name: deviceInfo.name,
-              type: deviceInfo.type,
-              status: deviceInfo.active ? "online" : "offline",
-              lastSeen: deviceInfo.createdTime
-                ? formatRelativeTime(deviceInfo.createdTime)
-                : "Unknown",
-              location: deviceInfo.customerTitle || "No location set",
-              telemetry: {
-                temperature: telemetryResult.telemetry?.temperature?.value,
-                humidity: telemetryResult.telemetry?.humidity?.value,
-                voltage:
-                  telemetryResult.telemetry?.voltage?.value ||
-                  telemetryResult.telemetry?.['"Voltage V1N"']?.value,
-              },
-            };
+//             const transformedDevice: CustomerDevice = {
+//               id: deviceInfo.id.id,
+//               name: deviceInfo.name,
+//               type: deviceInfo.type,
+//               status: deviceInfo.active ? "online" : "offline",
+//               lastSeen: deviceInfo.createdTime
+//                 ? formatRelativeTime(deviceInfo.createdTime)
+//                 : "Unknown",
+//               location: deviceInfo.customerTitle || "No location set",
+//               telemetry: {
+//                 temperature: telemetryResult.telemetry?.temperature?.value,
+//                 humidity: telemetryResult.telemetry?.humidity?.value,
+//                 voltage:
+//                   telemetryResult.telemetry?.voltage?.value ||
+//                   telemetryResult.telemetry?.['"Voltage V1N"']?.value,
+//               },
+//             };
 
-            // Set warning status if device has no recent telemetry
-            if (
-              !telemetryResult.telemetry ||
-              Object.keys(telemetryResult.telemetry).length === 0
-            ) {
-              transformedDevice.status = "warning";
-            }
+//             // Set warning status if device has no recent telemetry
+//             // if (
+//             //   !telemetryResult.telemetry ||
+//             //   Object.keys(telemetryResult.telemetry).length === 0
+//             // ) {
+//             //   transformedDevice.status = "warning";
+//             // }
 
-            devicesWithTelemetry.push(transformedDevice);
-            console.log("Transformed device:", transformedDevice);
-          } catch (telemetryError) {
-            console.error(
-              `Telemetry fetch failed for ${deviceInfo.name}:`,
-              telemetryError
-            );
+//             devicesWithTelemetry.push(transformedDevice);
+//             console.log("Transformed device:", transformedDevice);
+//           } catch (telemetryError) {
+//             console.error(
+//               `Telemetry fetch failed for ${deviceInfo.name}:`,
+//               telemetryError
+//             );
 
-            // Add device without telemetry data
-            const transformedDevice: CustomerDevice = {
-              id: deviceInfo.id.id,
-              name: deviceInfo.name,
-              type: deviceInfo.type,
-              status: "warning",
-              lastSeen: "No telemetry data",
-              location: deviceInfo.customerTitle || "No location set",
-              telemetry: {},
-            };
-            devicesWithTelemetry.push(transformedDevice);
-          }
-        }
+//             // Add device without telemetry data
+//             const transformedDevice: CustomerDevice = {
+//               id: deviceInfo.id.id,
+//               name: deviceInfo.name,
+//               type: deviceInfo.type,
+//               status: "warning",
+//               lastSeen: "No telemetry data",
+//               location: deviceInfo.customerTitle || "No location set",
+//               telemetry: {},
+//             };
+//             devicesWithTelemetry.push(transformedDevice);
+//           }
+//         }
 
-        setDevices(devicesWithTelemetry);
-        console.log("Final devices state:", devicesWithTelemetry);
+//         setDevices(devicesWithTelemetry);
+//         console.log("Final devices state:", devicesWithTelemetry);
 
-if (devicesWithTelemetry.length === 0) {
-  toast({
-    title: "No Devices Found",
-    description: "No devices found for your account.",
-    variant: "destructive",
-    duration: 2000,
-  });
-}
-      }
-    } catch (error) {
-      console.error("User data fetch error:", error);
+// if (devicesWithTelemetry.length === 0) {
+//   toast({
+//     title: "No Devices Found",
+//     description: "No devices found for your account.",
+//     variant: "destructive",
+//     duration: 2000,
+//   });
+// }
+//       }
+//     } catch (error) {
+//       console.error("User data fetch error:", error);
 
-      // Check if it's an authentication error
-      if (
-        error instanceof Error &&
-        error.message.includes("Authentication expired")
-      ) {
-        handleLogout();
-        return;
-      }
+//       // Check if it's an authentication error
+//       if (
+//         error instanceof Error &&
+//         error.message.includes("Authentication expired")
+//       ) {
+//         handleLogout();
+//         return;
+//       }
 
-      toast({
-        title: "API Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch data from ThingsBoard",
-        variant: "destructive",
-        duration: 2000,
-      });
+//       toast({
+//         title: "API Error",
+//         description:
+//           error instanceof Error
+//             ? error.message
+//             : "Failed to fetch data from ThingsBoard",
+//         variant: "destructive",
+//         duration: 2000,
+//       });
+//     }
+//   };
+
+  
+const fetchUserData = async () => {
+  try {
+    console.log("Fetching user's dashboards and devices...");
+
+    const [dashboardsResult, devicesResult] = await Promise.all([
+      api.getMyDashboards(),
+      api.getMyDevices(),
+    ]);
+
+    console.log("Dashboards result:", dashboardsResult);
+    console.log("Devices result:", devicesResult);
+
+    // Dashboards card meta
+    if (dashboardsResult?.data) {
+      const total =
+        (devicesResult && "totalElements" in devicesResult
+          ? (devicesResult as any).totalElements
+          : devicesResult?.data?.length) || 0;
+
+      const transformedDashboards: CustomerDashboard[] =
+        dashboardsResult.data.map((dash: any) => ({
+          id: dash.id.id,
+          name: dash.title,
+          description: "ThingsBoard Dashboard",
+          deviceCount: total,
+          lastUpdated: "Just now",
+        }));
+      setDashboards(transformedDashboards);
     }
-  };
+
+    // Devices list with ONLINE/OFFLINE + LAST SEEN from live data
+    if (devicesResult?.data) {
+      const devicesWithTelemetry: CustomerDevice[] = [];
+
+      for (const deviceInfo of devicesResult.data) {
+        try {
+          const live = await api.getDeviceLiveData(
+            deviceInfo.id.id,
+            undefined,
+            30
+          );
+          console.log(`Live for ${deviceInfo.name}:`, live);
+
+          const liveData: Record<
+            string,
+            { value: any; timestamp: number; isLive?: boolean }
+          > = live?.data || {};
+
+          // derive online/offline from live response
+          const isOnline = !!(live?.isLive || (live?.dataCount ?? 0) > 0);
+
+          // newest telemetry timestamp -> last seen
+          const lastTs = Object.values(liveData).reduce(
+            (max, d) => (d?.timestamp && d.timestamp > max ? d.timestamp : max),
+            0
+          );
+          const lastSeenText =
+            lastTs > 0 ? formatRelativeTime(lastTs) : "No telemetry";
+
+          // helper to extract preview values by fuzzy key
+          const pick = (...needles: string[]) => {
+            const key = Object.keys(liveData).find((k) =>
+              needles.every((n) => k.toLowerCase().includes(n))
+            );
+            if (!key) return undefined;
+            const v = liveData[key]?.value;
+            return typeof v === "number" ? v : Number(v);
+          };
+
+          const transformedDevice: CustomerDevice = {
+            id: deviceInfo.id.id,
+            name: deviceInfo.name,
+            type: deviceInfo.type,
+            status: isOnline ? "online" : "offline",
+            lastSeen: lastSeenText,
+            location: deviceInfo.customerTitle || "No location set",
+            telemetry: {
+              temperature: pick("temp"),
+              humidity: pick("humid"),
+              voltage: pick("voltage", "v1n") ?? pick("voltage"),
+            },
+          };
+
+          devicesWithTelemetry.push(transformedDevice);
+        } catch (telemetryError) {
+          console.error(
+            `Live fetch failed for ${deviceInfo.name}:`,
+            telemetryError
+          );
+          // treat as offline if live fetch fails
+          devicesWithTelemetry.push({
+            id: deviceInfo.id.id,
+            name: deviceInfo.name,
+            type: deviceInfo.type,
+            status: "offline",
+            lastSeen: "No telemetry",
+            location: deviceInfo.customerTitle || "No location set",
+            telemetry: {},
+          });
+        }
+      }
+
+      setDevices(devicesWithTelemetry);
+      console.log("Final devices state:", devicesWithTelemetry);
+    }
+  } catch (error) {
+    console.error("User data fetch error:", error);
+
+    if (
+      error instanceof Error &&
+      error.message.includes("Authentication expired")
+    ) {
+      handleLogout();
+      return;
+    }
+
+    toast({
+      title: "API Error",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch data from ThingsBoard",
+      variant: "destructive",
+      duration: 2000,
+    });
+  }
+};
+
 
   const formatRelativeTime = (timestamp: number): string => {
     const now = Date.now();
@@ -339,7 +469,8 @@ if (devicesWithTelemetry.length === 0) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {/* <div className="grid gap-3 md:grid-cols-2"> */}
+        <div className="grid gap-3 md:grid-cols-2">
           <Card className="telemetry-card">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
@@ -376,7 +507,7 @@ if (devicesWithTelemetry.length === 0) {
             </CardContent>
           </Card>
 
-          <Card className="telemetry-card">
+          {/* <Card className="telemetry-card">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -392,7 +523,7 @@ if (devicesWithTelemetry.length === 0) {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
 
         {/* Devices Section */}
@@ -439,7 +570,7 @@ if (devicesWithTelemetry.length === 0) {
                         </CardTitle>
                         <CardDescription>{device.type}</CardDescription>
                       </div>
-                      <div className="flex items-center gap-2">
+                      {/* <div className="flex items-center gap-2">
                         <div
                           className={`status-indicator ${getStatusColor(
                             device.status
@@ -448,7 +579,7 @@ if (devicesWithTelemetry.length === 0) {
                         <span className="text-xs text-muted-foreground">
                           {getStatusText(device.status)}
                         </span>
-                      </div>
+                      </div> */}
                     </div>
                   </CardHeader>
                   <CardContent>

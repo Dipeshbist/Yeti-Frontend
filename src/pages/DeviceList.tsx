@@ -32,7 +32,7 @@ interface Device {
   id: string;
   name: string;
   type: string;
-  status: "online" | "offline" | "warning";
+  status: "online" | "offline";
   lastSeen: string;
   location: string;
   telemetry: {
@@ -108,6 +108,130 @@ const DeviceList = () => {
     }
   };
 
+  // const fetchAllDevices = async () => {
+  //   try {
+  //     console.log("Fetching all devices with JWT authentication...");
+
+  //     // Fetch all customer devices using JWT-authenticated endpoint
+  //     const devicesResult = await api.getMyDevices();
+  //     console.log("All devices result:", devicesResult);
+
+  //     if (devicesResult.error) {
+  //       throw new Error(devicesResult.error);
+  //     }
+
+  //     if (!devicesResult.data || devicesResult.data.length === 0) {
+  //       setDevices([]);
+  //       toast({
+  //         title: "No Devices Found",
+  //         description: "No devices found for your account",
+  //         variant: "destructive",
+  //         duration: 2000,
+  //       });
+  //       return;
+  //     }
+
+  //     // Process devices and fetch their telemetry
+  //     const devicesWithTelemetry: Device[] = [];
+
+  //     console.log(`Processing ${devicesResult.data.length} devices...`);
+
+  //     // Process devices in batches to avoid overwhelming the API
+  //     const batchSize = 5;
+  //     for (let i = 0; i < devicesResult.data.length; i += batchSize) {
+  //       const batch = devicesResult.data.slice(i, i + batchSize);
+
+  //       const batchPromises = batch.map(async (deviceInfo) => {
+  //         try {
+  //           console.log(
+  //             `Fetching telemetry for: ${deviceInfo.name} (${deviceInfo.id.id})`
+  //           );
+
+  //           const telemetryResult = await api.getDeviceRealtime(
+  //             deviceInfo.id.id
+  //           );
+  //           console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
+
+  //           const transformedDevice: Device = {
+  //             id: deviceInfo.id.id,
+  //             name: deviceInfo.name,
+  //             type: deviceInfo.type,
+  //             status: deviceInfo.active ? "online" : "offline",
+  //             lastSeen: deviceInfo.createdTime
+  //               ? formatRelativeTime(deviceInfo.createdTime)
+  //               : "Unknown",
+  //             location: deviceInfo.customerTitle || "No location set",
+  //             telemetry: extractTelemetryValues(
+  //               telemetryResult.telemetry || {}
+  //             ),
+  //           };
+
+  //           // Set warning status if device has no recent telemetry
+  //           if (
+  //             !telemetryResult.telemetry ||
+  //             Object.keys(telemetryResult.telemetry).length === 0
+  //           ) {
+  //             transformedDevice.status = "warning";
+  //             transformedDevice.lastSeen = "No telemetry data";
+  //           }
+
+  //           return transformedDevice;
+  //         } catch (telemetryError) {
+  //           console.error(
+  //             `Telemetry fetch failed for ${deviceInfo.name}:`,
+  //             telemetryError
+  //           );
+
+  //           return {
+  //             id: deviceInfo.id.id,
+  //             name: deviceInfo.name,
+  //             type: deviceInfo.type,
+  //             status: "warning" as const,
+  //             lastSeen: "No telemetry",
+  //             location: deviceInfo.customerTitle || "No location set",
+  //             telemetry: {},
+  //           };
+  //         }
+  //       });
+
+  //       const batchResults = await Promise.all(batchPromises);
+  //       devicesWithTelemetry.push(...batchResults);
+  //     }
+
+  //     setDevices(devicesWithTelemetry);
+  //     console.log("Final devices list:", devicesWithTelemetry);
+
+  //     toast({
+  //       title: "Devices Loaded",
+  //       description: `Successfully loaded ${devicesWithTelemetry.length} devices from ThingsBoard`,
+  //       duration: 2000,
+  //     });
+  //   } catch (error) {
+  //     console.error("Fetch all devices error:", error);
+
+  //     // Handle authentication errors
+  //     if (
+  //       error instanceof Error &&
+  //       error.message.includes("Authentication expired")
+  //     ) {
+  //       localStorage.removeItem("token");
+  //       localStorage.removeItem("user");
+  //       localStorage.removeItem("customerId");
+  //       navigate("/");
+  //       return;
+  //     }
+
+  //     toast({
+  //       title: "API Error",
+  //       description:
+  //         error instanceof Error ? error.message : "Failed to fetch devices",
+  //       variant: "destructive",
+  //       duration: 2000,
+  //     });
+  //   }
+  // };
+
+
   const fetchAllDevices = async () => {
     try {
       console.log("Fetching all devices with JWT authentication...");
@@ -120,7 +244,8 @@ const DeviceList = () => {
         throw new Error(devicesResult.error);
       }
 
-      if (!devicesResult.data || devicesResult.data.length === 0) {
+      const list = devicesResult.data || [];
+      if (list.length === 0) {
         setDevices([]);
         toast({
           title: "No Devices Found",
@@ -131,79 +256,96 @@ const DeviceList = () => {
         return;
       }
 
-      // Process devices and fetch their telemetry
+      // Process devices and fetch their live telemetry
       const devicesWithTelemetry: Device[] = [];
+      console.log(`Processing ${list.length} devices...`);
 
-      console.log(`Processing ${devicesResult.data.length} devices...`);
-
-      // Process devices in batches to avoid overwhelming the API
+      // Process in small batches to avoid spiking the API
       const batchSize = 5;
-      for (let i = 0; i < devicesResult.data.length; i += batchSize) {
-        const batch = devicesResult.data.slice(i, i + batchSize);
+      for (let i = 0; i < list.length; i += batchSize) {
+        const batch = list.slice(i, i + batchSize);
 
-        const batchPromises = batch.map(async (deviceInfo) => {
-          try {
-            console.log(
-              `Fetching telemetry for: ${deviceInfo.name} (${deviceInfo.id.id})`
-            );
+        const batchResults = await Promise.all(
+          batch.map(async (deviceInfo) => {
+            try {
+              console.log(
+                `Fetching LIVE data for: ${deviceInfo.name} (${deviceInfo.id.id})`
+              );
 
-            const telemetryResult = await api.getDeviceRealtime(
-              deviceInfo.id.id
-            );
-            console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
+              // Use live endpoint: considers points within last 60s
+              const live = await api.getDeviceLiveData(
+                deviceInfo.id.id,
+                undefined,
+                60
+              );
+              console.log(`Live for ${deviceInfo.name}:`, live);
 
-            const transformedDevice: Device = {
-              id: deviceInfo.id.id,
-              name: deviceInfo.name,
-              type: deviceInfo.type,
-              status: deviceInfo.active ? "online" : "offline",
-              lastSeen: deviceInfo.createdTime
-                ? formatRelativeTime(deviceInfo.createdTime)
-                : "Unknown",
-              location: deviceInfo.customerTitle || "No location set",
-              telemetry: extractTelemetryValues(
-                telemetryResult.telemetry || {}
-              ),
-            };
+              const liveData: Record<
+                string,
+                { value: any; timestamp: number; isLive?: boolean }
+              > = live?.data || {};
 
-            // Set warning status if device has no recent telemetry
-            if (
-              !telemetryResult.telemetry ||
-              Object.keys(telemetryResult.telemetry).length === 0
-            ) {
-              transformedDevice.status = "warning";
-              transformedDevice.lastSeen = "No telemetry data";
+              // Determine ONLINE if any recent datapoint exists
+              const isOnline = !!(live?.isLive || (live?.dataCount ?? 0) > 0);
+
+              // Compute last seen from newest live timestamp (if any)
+              const lastTs = Object.values(liveData).reduce(
+                (max, d) =>
+                  d?.timestamp && d.timestamp > max ? d.timestamp : max,
+                0
+              );
+              const lastSeen =
+                lastTs > 0 ? formatRelativeTime(lastTs) : "No telemetry";
+
+              const transformedDevice: Device = {
+                id: deviceInfo.id.id,
+                name: deviceInfo.name,
+                type: deviceInfo.type,
+                status: isOnline ? "online" : "offline",
+                lastSeen,
+                location: deviceInfo.customerTitle || "No location set",
+                // Reuse your extractor: it understands { value, timestamp } objects
+                telemetry: extractTelemetryValues(liveData),
+              };
+
+              return transformedDevice;
+            } catch (telemetryError) {
+              console.error(
+                `Live fetch failed for ${deviceInfo.name}:`,
+                telemetryError
+              );
+
+              // On error treat device as offline
+              const transformedDevice: Device = {
+                id: deviceInfo.id.id,
+                name: deviceInfo.name,
+                type: deviceInfo.type,
+                status: "offline",
+                lastSeen: "No telemetry",
+                location: deviceInfo.customerTitle || "No location set",
+                telemetry: {},
+              };
+              return transformedDevice;
             }
+          })
+        );
 
-            return transformedDevice;
-          } catch (telemetryError) {
-            console.error(
-              `Telemetry fetch failed for ${deviceInfo.name}:`,
-              telemetryError
-            );
-
-            return {
-              id: deviceInfo.id.id,
-              name: deviceInfo.name,
-              type: deviceInfo.type,
-              status: "warning" as const,
-              lastSeen: "No telemetry",
-              location: deviceInfo.customerTitle || "No location set",
-              telemetry: {},
-            };
-          }
-        });
-
-        const batchResults = await Promise.all(batchPromises);
         devicesWithTelemetry.push(...batchResults);
       }
 
       setDevices(devicesWithTelemetry);
       console.log("Final devices list:", devicesWithTelemetry);
 
+      const onlineCount = devicesWithTelemetry.filter(
+        (d) => d.status === "online"
+      ).length;
+      const offlineCount = devicesWithTelemetry.filter(
+        (d) => d.status === "offline"
+      ).length;
+
       toast({
         title: "Devices Loaded",
-        description: `Successfully loaded ${devicesWithTelemetry.length} devices from ThingsBoard`,
+        description: `Online: ${onlineCount} • Offline: ${offlineCount}`,
         duration: 2000,
       });
     } catch (error) {
@@ -224,15 +366,14 @@ const DeviceList = () => {
       toast({
         title: "API Error",
         description:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch devices",
+          error instanceof Error ? error.message : "Failed to fetch devices",
         variant: "destructive",
         duration: 2000,
       });
     }
   };
 
+  
   const extractTelemetryValues = (
     telemetry: Record<string, { value: any; timestamp: number }>
   ) => {
@@ -285,8 +426,8 @@ const DeviceList = () => {
     switch (status) {
       case "online":
         return "bg-success";
-      case "warning":
-        return "bg-warning";
+      // case "warning":
+      //   return "bg-warning";
       case "offline":
         return "bg-destructive";
       default:
@@ -298,8 +439,8 @@ const DeviceList = () => {
     switch (status) {
       case "online":
         return <Activity className="w-4 h-4 text-success" />;
-      case "warning":
-        return <AlertTriangle className="w-4 h-4 text-warning" />;
+      // case "warning":
+      //   return <AlertTriangle className="w-4 h-4 text-warning" />;
       case "offline":
         return <Cpu className="w-4 h-4 text-destructive" />;
       default:
@@ -359,14 +500,14 @@ const DeviceList = () => {
               <Activity className="w-3 h-3 mr-1" />
               Online ({devices.filter((d) => d.status === "online").length})
             </Button>
-            <Button
+            {/* <Button
               variant={statusFilter === "warning" ? "default" : "outline"}
               onClick={() => setStatusFilter("warning")}
               className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 flex-shrink-0"
             >
               <AlertTriangle className="w-3 h-3 mr-1" />
               Warning ({devices.filter((d) => d.status === "warning").length})
-            </Button>
+            </Button> */}
             <Button
               variant={statusFilter === "offline" ? "default" : "outline"}
               onClick={() => setStatusFilter("offline")}
@@ -492,7 +633,7 @@ const DeviceList = () => {
                     </div>
 
                     {/* Status Badge */}
-                    <div className="pt-2 flex justify-between items-center">
+                    {/* <div className="pt-2 flex justify-between items-center">
                       <Badge
                         variant={
                           device.status === "online"
@@ -505,7 +646,7 @@ const DeviceList = () => {
                       >
                         {device.status}
                       </Badge>
-                    </div>
+                    </div> */}
                   </div>
                 </CardContent>
               </Card>

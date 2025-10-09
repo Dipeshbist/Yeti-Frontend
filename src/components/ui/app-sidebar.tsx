@@ -110,7 +110,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Status indicator */}
-        <div className="mt-auto p-4 border-t border-sidebar-border">
+        {/* <div className="mt-auto p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="status-indicator bg-success animate-pulse"></div>
             {!collapsed && (
@@ -119,7 +119,7 @@ export function AppSidebar() {
               </span>
             )}
           </div>
-        </div>
+        </div> */}
       </SidebarContent>
     </Sidebar>
   );

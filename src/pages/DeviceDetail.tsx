@@ -18,10 +18,8 @@ import {
   Clock,
   MapPin,
   Cpu,
-
   RefreshCw,
   AlertTriangle,
-
   Settings,
 } from "lucide-react";
 import { api } from "@/services/api.ts";
@@ -121,18 +119,18 @@ const DeviceDetail = () => {
     initializeDeviceData();
   }, [deviceId, navigate]);
 
-useEffect(() => {
-  let interval: NodeJS.Timeout;
-  if (deviceId) {
-    setIsLivePolling(true);
-    fetchLiveData(); // Call the new live data function
-    interval = setInterval(fetchLiveData, 5000); // Poll every 5 seconds
-  }
-  return () => {
-    if (interval) clearInterval(interval);
-    setIsLivePolling(false);
-  };
-}, [deviceId]);
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (deviceId) {
+      setIsLivePolling(true);
+      fetchLiveData(); // Call the new live data function
+      interval = setInterval(fetchLiveData, 5000); // Poll every 5 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      setIsLivePolling(false);
+    };
+  }, [deviceId]);
 
   // Helper function to format attribute names for better readability
   const formatAttributeName = (key: string): string => {
@@ -215,25 +213,25 @@ useEffect(() => {
     }
   };
 
-const fetchRealtimeData = async () => {
-  if (!deviceId) return;
+  const fetchRealtimeData = async () => {
+    if (!deviceId) return;
 
-  try {
-    console.log("Fetching initial realtime data for:", deviceId);
-    const result = await api.getDeviceRealtime(deviceId);
-    console.log("Initial realtime data result:", result);
+    try {
+      console.log("Fetching initial realtime data for:", deviceId);
+      const result = await api.getDeviceRealtime(deviceId);
+      console.log("Initial realtime data result:", result);
 
-    if (result) {
-      setRealtimeData(result);
-      generateTelemetryWidgets(result);
-      setLastUpdated(new Date());
+      if (result) {
+        setRealtimeData(result);
+        generateTelemetryWidgets(result);
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error("Initial realtime data fetch error:", error);
+      // Fallback to live data if regular realtime fails
+      await fetchLiveData();
     }
-  } catch (error) {
-    console.error("Initial realtime data fetch error:", error);
-    // Fallback to live data if regular realtime fails
-    await fetchLiveData();
-  }
-};
+  };
 
 const fetchLiveData = async () => {
   if (!deviceId) return;
@@ -241,20 +239,33 @@ const fetchLiveData = async () => {
   try {
     console.log("Fetching live data for:", deviceId);
 
-    // Call the NEW live endpoint
     const liveData = await api.getDeviceLiveData(deviceId, undefined, 30);
     console.log("Live data result:", liveData);
 
-    // Check if we have any live data
     if (liveData && liveData.dataCount > 0) {
-      // Transform the live data to match your existing structure
       const transformedData = {
         deviceId: liveData.deviceId,
         timestamp: liveData.timestamp,
-        telemetry: liveData.data || {}, // The live endpoint returns data in .data
-        attributes: {},
+        telemetry: liveData.data || {},
+        attributes:
+          realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
         keys: liveData.keys || [],
       };
+
+      // compute newest telemetry timestamp to show as "Last Seen"
+      const latestTs: number = (Object.values(transformedData.telemetry) as Array<{ timestamp: number }>).reduce(
+        (max: number, v) =>
+          v && typeof v.timestamp === "number" && v.timestamp > max
+            ? v.timestamp
+            : max,
+        0
+      );
+
+      if (latestTs > 0) {
+        setDevice((prev) =>
+          prev ? { ...prev, lastSeen: formatRelativeTime(latestTs) } : prev
+        );
+      }
 
       setRealtimeData(transformedData);
       generateTelemetryWidgets(transformedData);
@@ -262,7 +273,6 @@ const fetchLiveData = async () => {
 
       console.log("Updated with fresh live data:", transformedData);
     } else {
-      // No live data - clear the display
       console.log("No live data available - clearing display");
       setRealtimeData(null);
       setTelemetryWidgets([]);
@@ -271,7 +281,6 @@ const fetchLiveData = async () => {
   } catch (error) {
     console.error("Live data fetch error:", error);
 
-    // Handle authentication errors
     if (
       error instanceof Error &&
       error.message.includes("Authentication expired")
@@ -285,7 +294,8 @@ const fetchLiveData = async () => {
     console.warn("Failed to fetch live data, retrying in 5 seconds...");
   }
 };
-  
+
+
   const fetchDeviceAttributes = async () => {
     if (!deviceId) return;
 
@@ -535,17 +545,21 @@ const fetchLiveData = async () => {
     });
 
     groupedBySensor.forEach((parameters, sensorSystem) => {
-      const widget: TelemetryWidget = {
-        key: sensorSystem,
-        displayName: `Sensor System ${sensorSystem.toUpperCase()}`,
-        value: parameters,
-        timestamp: Math.max(...parameters.map((p) => p.data.timestamp)),
-        unit: "",
-        category: "system",
-        icon: "Cpu",
-        color: getColorForSensorSystem(sensorSystem),
-        path: sensorSystem,
-      };
+const widget: TelemetryWidget = {
+  key: sensorSystem,
+  displayName:
+    sensorSystem === "internal"
+      ? "Internal Data"
+      : `Sensor System ${sensorSystem.toUpperCase()}`,
+  value: parameters,
+  timestamp: Math.max(...parameters.map((p) => p.data.timestamp)),
+  unit: "",
+  category: "system",
+  icon: "Cpu",
+  color: getColorForSensorSystem(sensorSystem),
+  path: sensorSystem,
+};
+
       widgets.push(widget);
     });
 
@@ -555,15 +569,57 @@ const fetchLiveData = async () => {
   };
 
   // FIXED: More flexible sensor system extraction
+  // const extractSensorSystem = (key: string): string => {
+  //   // Check for existing s1/ pattern first
+  //   const slashMatch = key.match(/^(s\d+)\//);
+  //   if (slashMatch) return slashMatch[1];
+
+  //   // More flexible pattern matching - use substring contains instead of exact matches
+  //   const lowerKey = key.toLowerCase();
+
+  //   // Group S1 parameters more flexibly
+  //   if (
+  //     lowerKey.includes("v1n") ||
+  //     lowerKey.includes("v2n") ||
+  //     lowerKey.includes("v3n") ||
+  //     lowerKey.includes("i1") ||
+  //     lowerKey.includes("i2") ||
+  //     lowerKey.includes("i3") ||
+  //     lowerKey.includes("units2") ||
+  //     lowerKey.includes("units3") ||
+  //     lowerKey.includes("frequency") ||
+  //     lowerKey.includes("power factor 1")
+  //   ) {
+  //     return "s1";
+  //   }
+
+  //   // Group S2 parameters
+  //   if (
+  //     lowerKey.includes("v4n") ||
+  //     lowerKey.includes("v5n") ||
+  //     lowerKey.includes("v6n") ||
+  //     lowerKey.includes("power factor 2")
+  //   ) {
+  //     return "s2";
+  //   }
+
+  //   // Fallback for anything else with voltage/current
+  //   if (lowerKey.includes("voltage") || lowerKey.includes("current")) {
+  //     return "s1"; // Default electrical parameters to s1
+  //   }
+
+  //   return "unknown";
+  // };
+
+  // Put s1/..., s2/... into those buckets. Everything else -> "internal".
   const extractSensorSystem = (key: string): string => {
-    // Check for existing s1/ pattern first
+    // sX/ prefix (e.g., s1/Voltage V1N)
     const slashMatch = key.match(/^(s\d+)\//);
     if (slashMatch) return slashMatch[1];
 
-    // More flexible pattern matching - use substring contains instead of exact matches
     const lowerKey = key.toLowerCase();
 
-    // Group S1 parameters more flexibly
+    // Heuristics for s1 & s2 when prefix is missing in the key text
     if (
       lowerKey.includes("v1n") ||
       lowerKey.includes("v2n") ||
@@ -571,15 +627,14 @@ const fetchLiveData = async () => {
       lowerKey.includes("i1") ||
       lowerKey.includes("i2") ||
       lowerKey.includes("i3") ||
-      lowerKey.includes("units2") ||
-      lowerKey.includes("units3") ||
       lowerKey.includes("frequency") ||
-      lowerKey.includes("power factor 1")
+      lowerKey.includes("power factor 1") ||
+      lowerKey.includes("units1") ||
+      lowerKey.includes("units2") ||
+      lowerKey.includes("units3")
     ) {
       return "s1";
     }
-
-    // Group S2 parameters
     if (
       lowerKey.includes("v4n") ||
       lowerKey.includes("v5n") ||
@@ -589,12 +644,19 @@ const fetchLiveData = async () => {
       return "s2";
     }
 
-    // Fallback for anything else with voltage/current
-    if (lowerKey.includes("voltage") || lowerKey.includes("current")) {
-      return "s1"; // Default electrical parameters to s1
+    // Known internal/board-level keys
+    if (
+      lowerKey.startsWith("dev_") ||
+      lowerKey.includes("free_heap") ||
+      lowerKey.includes("up_time") ||
+      lowerKey.includes("ota") ||
+      lowerKey === "sid"
+    ) {
+      return "internal";
     }
 
-    return "unknown";
+    // Fallback: any key with no sX/ prefix goes to internal
+    return "internal";
   };
 
   const getColorForSensorSystem = (sensorSystem: string): string => {
@@ -619,7 +681,6 @@ const fetchLiveData = async () => {
     }
     return key;
   };
-
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -655,48 +716,48 @@ const fetchLiveData = async () => {
     );
   }
 
- return (
-   <AppLayout>
-     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-       {/* Header */}
-       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-         <div className="flex items-center gap-4">
-           <Button
-             variant="outline"
-             size="icon"
-             onClick={() => navigate("/devices")}
-             className="h-8 w-8 sm:h-10 sm:w-10"
-           >
-             <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-           </Button>
-           <div className="flex-1">
-             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-               <h1 className="text-lg sm:text-xl font-bold text-foreground">
-                 {device.name}
-               </h1>
-               <div className="flex items-center gap-2">
-                 <div
-                   className={`status-indicator ${getStatusColor(
-                     device.status
-                   )}`}
-                 ></div>
-                 <Badge
-                   variant={
-                     device.status === "online" ? "default" : "secondary"
-                   }
-                   className="capitalize text-xs"
-                 >
-                   {device.status}
-                 </Badge>
-               </div>
-             </div>
-             <p className="text-sm text-muted-foreground">
-               {device.type} • {device.location}
-             </p>
-           </div>
-         </div>
+  return (
+    <AppLayout>
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate("/devices")}
+              className="h-8 w-8 sm:h-10 sm:w-10"
+            >
+              <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-lg sm:text-xl font-bold text-foreground">
+                  {device.name}
+                </h1>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`status-indicator ${getStatusColor(
+                      device.status
+                    )}`}
+                  ></div>
+                  <Badge
+                    variant={
+                      device.status === "online" ? "default" : "secondary"
+                    }
+                    className="capitalize text-xs"
+                  >
+                    {device.status}
+                  </Badge>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {device.type} • {device.location}
+              </p>
+            </div>
+          </div>
 
-         {/*<div className="flex sm:justify-end">
+          {/*<div className="flex sm:justify-end">
            <Button
              variant="outline"
              onClick={() => fetchLiveData()}
@@ -711,336 +772,347 @@ const fetchLiveData = async () => {
              {isLivePolling ? "Updating..." : "Refresh Live"}
            </Button>
          </div> */}
-       </div>
+        </div>
 
-       {/* Dynamic Telemetry Widgets */}
-       <div className="space-y-4">
-         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-           <h2 className="text-base sm:text-lg font-semibold text-foreground flex flex-col sm:flex-row sm:items-center gap-2">
-             Live Telemetry Data ({telemetryWidgets.length} sensor systems)
-             <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
-               <div
-                 className={`w-2 h-2 rounded-full animate-pulse ${
-                   realtimeData && Date.now() - realtimeData.timestamp < 30000
-                     ? "bg-green-500"
-                     : realtimeData &&
-                       Date.now() - realtimeData.timestamp < 60000
-                     ? "bg-yellow-500"
-                     : "bg-red-500"
-                 }`}
-               ></div>
-               Auto-updating every 5s
-               {realtimeData && (
-                 <span className="ml-2 text-xs">
-                   (Data:{" "}
-                   {Math.round((Date.now() - realtimeData.timestamp) / 1000)}s
-                   old)
-                 </span>
-               )}
-             </div>
-           </h2>
-           {lastUpdated && (
-             <p className="text-xs text-muted-foreground">
-               Last updated: {lastUpdated.toLocaleTimeString()}
-             </p>
-           )}
-         </div>
+        {/* Dynamic Telemetry Widgets */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-foreground flex flex-col sm:flex-row sm:items-center gap-2">
+              Live Telemetry Data ({telemetryWidgets.length} sensor systems)
+              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+                <div
+                  className={`w-2 h-2 rounded-full animate-pulse ${
+                    realtimeData && Date.now() - realtimeData.timestamp < 30000
+                      ? "bg-green-500"
+                      : realtimeData &&
+                        Date.now() - realtimeData.timestamp < 60000
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                  }`}
+                ></div>
+                Auto-updating every 5s
+                {realtimeData && (
+                  <span className="ml-2 text-xs">
+                    (Data:{" "}
+                    {Math.round((Date.now() - realtimeData.timestamp) / 1000)}s
+                    old)
+                  </span>
+                )}
+              </div>
+            </h2>
+            {lastUpdated && (
+              <p className="text-xs text-muted-foreground">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
 
-         {telemetryWidgets.length > 0 ? (
-           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-             {telemetryWidgets.map((widget, index) => (
-               <Card
-                 key={`${widget.key}-${index}`}
-                 className={`telemetry-card hover:bg-muted/50 transition-all ${
-                   realtimeData && Date.now() - realtimeData.timestamp > 60000
-                     ? "border-yellow-500/50"
-                     : ""
-                 }`}
-               >
-                 <CardContent className="p-3 sm:p-4">
-                   {/* Add stale data warning */}
-                   {realtimeData &&
-                     Date.now() - realtimeData.timestamp > 60000 && (
-                       <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-700">
-                         ⚠️ Data may be stale (
-                         {Math.round(
-                           (Date.now() - realtimeData.timestamp) / 1000
-                         )}
-                         s old)
-                       </div>
-                     )}
+          {telemetryWidgets.length > 0 ? (
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {telemetryWidgets.map((widget, index) => (
+                <Card
+                  key={`${widget.key}-${index}`}
+                  className={`telemetry-card hover:bg-muted/50 transition-all ${
+                    realtimeData && Date.now() - realtimeData.timestamp > 60000
+                      ? "border-yellow-500/50"
+                      : ""
+                  }`}
+                >
+                  <CardContent className="p-3 sm:p-4">
+                    {/* Add stale data warning */}
+                    {realtimeData &&
+                      Date.now() - realtimeData.timestamp > 60000 && (
+                        <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-700">
+                          ⚠️ Data may be stale (
+                          {Math.round(
+                            (Date.now() - realtimeData.timestamp) / 1000
+                          )}
+                          s old)
+                        </div>
+                      )}
 
-                   <div className="space-y-3 sm:space-y-4">
-                     <div className="flex items-center justify-between">
-                       <h3
-                         className={`text-base sm:text-lg font-semibold ${widget.color}`}
-                       >
-                         {widget.displayName}
-                       </h3>
-                       <div
-                         className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${widget.color.replace(
-                           "text-",
-                           "bg-"
-                         )}/20 flex items-center justify-center`}
-                       >
-                         <Cpu
-                           className={`w-4 h-4 sm:w-5 sm:h-5 ${widget.color}`}
-                         />
-                       </div>
-                     </div>
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3
+                          className={`text-base sm:text-lg font-semibold ${widget.color}`}
+                        >
+                          {widget.displayName}
+                        </h3>
+                        <div
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${widget.color.replace(
+                            "text-",
+                            "bg-"
+                          )}/20 flex items-center justify-center`}
+                        >
+                          <Cpu
+                            className={`w-4 h-4 sm:w-5 sm:h-5 ${widget.color}`}
+                          />
+                        </div>
+                      </div>
 
-                     <div className="space-y-2">
-                       {Array.isArray(widget.value) &&
-                         widget.value.map((param, paramIndex) => (
-                           <div
-                             key={paramIndex}
-                             className="flex items-center justify-between py-2 border-b border-muted/50 last:border-b-0"
-                           >
-                             <div className="flex items-center gap-2">
-                               <Settings
-                                 className={`w-4 h-4 ${widget.color}`}
-                               />
-                               <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                                 {formatParameterName(param.key)}
-                               </span>
-                             </div>
-                             <div className="text-right">
-                               <p
-                                 className={`text-base sm:text-lg font-bold ${widget.color}`}
-                               >
-                                 {typeof param.data.value === "number"
-                                   ? param.data.value.toFixed(2) +
-                                     extractUnit(param.key)
-                                   : String(param.data.value) +
-                                     extractUnit(param.key)}
-                               </p>
-                               <p className="text-xs text-muted-foreground">
-                                 {new Date(
-                                   param.data.timestamp
-                                 ).toLocaleTimeString()}
-                               </p>
-                             </div>
-                           </div>
-                         ))}
-                     </div>
+                      <div className="space-y-2">
+                        {Array.isArray(widget.value) &&
+                          widget.value.map((param, paramIndex) => (
+                            <div
+                              key={paramIndex}
+                              className="flex items-center justify-between py-2 border-b border-muted/50 last:border-b-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Settings
+                                  className={`w-4 h-4 ${widget.color}`}
+                                />
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                                  {formatParameterName(param.key)}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <p
+                                  className={`text-base sm:text-lg font-bold ${widget.color}`}
+                                >
+                                  {typeof param.data.value === "number"
+                                    ? param.data.value.toFixed(2) +
+                                      extractUnit(param.key)
+                                    : String(param.data.value) +
+                                      extractUnit(param.key)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    param.data.timestamp
+                                  ).toLocaleTimeString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
 
-                     <div className="text-xs text-muted-foreground">
-                       System: {widget.path} •{" "}
-                       {Array.isArray(widget.value) ? widget.value.length : 0}{" "}
-                       parameters
-                     </div>
-                   </div>
-                 </CardContent>
-               </Card>
-             ))}
-           </div>
-         ) : (
-           <Card className="industrial-card">
-             <CardContent className="p-8 text-center">
-               <AlertTriangle className="w-8 h-8 mx-auto text-muted-foreground mb-4" />
-               <h3 className="text-lg font-semibold mb-2">
-                 No Fresh Telemetry Data Available
-               </h3>
-               <p className="text-muted-foreground mb-4">
-                 No live telemetry data from the last 30 seconds is available
-                 for this device.
-               </p>
-               <Button
-                 variant="outline"
-                 onClick={() => fetchLiveData()}
-                 className="text-sm"
-               >
-                 <RefreshCw className="w-4 h-4 mr-2" />
-                 Check for Live Data
-               </Button>
-             </CardContent>
-           </Card>
-         )}
-       </div>
+                      <div className="text-xs text-muted-foreground">
+                        System: {widget.path} •{" "}
+                        {Array.isArray(widget.value) ? widget.value.length : 0}{" "}
+                        parameters
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="industrial-card">
+              <CardContent className="p-8 text-center">
+                <AlertTriangle className="w-8 h-8 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No Fresh Telemetry Data Available
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  No live telemetry data from the last 30 seconds is available
+                  for this device.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchLiveData()}
+                  className="text-sm"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Check for Live Data
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-       {/* Tabs Section */}
-       <Tabs defaultValue="info" className="space-y-6">
-         <TabsList className="grid w-full grid-cols-2">
-           <TabsTrigger value="info">Device Info</TabsTrigger>
-           <TabsTrigger value="raw">Raw Data</TabsTrigger>
-         </TabsList>
+        {/* Tabs Section */}
+        <Tabs defaultValue="info" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="info">Device Info</TabsTrigger>
+            <TabsTrigger value="raw">Raw Data</TabsTrigger>
+          </TabsList>
 
-         <TabsContent value="info">
-           <Card className="industrial-card">
-             <CardHeader>
-               <CardTitle className="flex items-center gap-2">
-                 <Cpu className="w-5 h-5" />
-                 Device Information
-               </CardTitle>
-             </CardHeader>
-             <CardContent>
-               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                 {/* Left column */}
-                 <div className="space-y-4">
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Device ID
-                     </label>
-                     <p className="text-foreground font-mono text-sm">
-                       {device.id}
-                     </p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Manufacturer
-                     </label>
-                     <p className="text-foreground">{device.manufacturer}</p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Model
-                     </label>
-                     <p className="text-foreground">{device.model}</p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Serial Number
-                     </label>
-                     <p className="text-foreground font-mono">
-                       {device.serialNumber}
-                     </p>
-                   </div>
-                 </div>
+          <TabsContent value="info">
+            <Card className="industrial-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="w-5 h-5" />
+                  Device Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  {/* Left column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Device ID
+                      </label>
+                      <p className="text-foreground font-mono text-sm">
+                        {device.id}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Manufacturer
+                      </label>
+                      <p className="text-foreground">{device.manufacturer}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Model
+                      </label>
+                      <p className="text-foreground">{device.model}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Serial Number
+                      </label>
+                      <p className="text-foreground font-mono">
+                        {device.serialNumber}
+                      </p>
+                    </div>
+                  </div>
 
-                 {/* Right column */}
-                 <div className="space-y-4">
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Location
-                     </label>
-                     <p className="text-foreground flex items-center gap-2">
-                       <MapPin className="w-4 h-4" />
-                       {device.location}
-                     </p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Firmware Version
-                     </label>
-                     <p className="text-foreground">{device.firmwareVersion}</p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Last Seen
-                     </label>
-                     <p className="text-foreground flex items-center gap-2">
-                       <Clock className="w-4 h-4" />
-                       {device.lastSeen}
-                     </p>
-                   </div>
-                   <div>
-                     <label className="text-sm font-medium text-muted-foreground">
-                       Status
-                     </label>
-                     <div className="flex items-center gap-2">
-                       <div
-                         className={`status-indicator ${getStatusColor(
-                           device.status
-                         )}`}
-                       ></div>
-                       <Badge
-                         variant={
-                           device.status === "online" ? "default" : "secondary"
-                         }
-                         className="capitalize"
-                       >
-                         {device.status}
-                       </Badge>
-                       <Badge variant="outline" className="animate-pulse">
-                         <Activity className="w-3 h-3 mr-1" />
-                         Live (5s)
-                       </Badge>
-                     </div>
-                   </div>
-                 </div>
-               </div>
-             </CardContent>
-           </Card>
-         </TabsContent>
+                  {/* Right column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Location
+                      </label>
+                      <p className="text-foreground flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        {device.location}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Firmware Version
+                      </label>
+                      <p className="text-foreground">
+                        {device.firmwareVersion}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Last Seen
+                      </label>
+                      <p className="text-foreground flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        {device.lastSeen}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Status
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`status-indicator ${getStatusColor(
+                            device.status
+                          )}`}
+                        ></div>
+                        <Badge
+                          variant={
+                            device.status === "online" ? "default" : "secondary"
+                          }
+                          className="capitalize"
+                        >
+                          {device.status}
+                        </Badge>
+                        <Badge variant="outline" className="animate-pulse">
+                          <Activity className="w-3 h-3 mr-1" />
+                          Live (5s)
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-         <TabsContent value="raw">
-           <Card className="industrial-card">
-             <CardHeader>
-               <CardTitle className="text-base sm:text-lg">
-                 Raw Telemetry Data
-               </CardTitle>
-               <CardDescription className="text-xs sm:text-sm">
-                 Latest real-time sensor readings from ThingsBoard
-               </CardDescription>
-             </CardHeader>
-             <CardContent>
-               <div className="space-y-4">
-                 {realtimeData ? (
-                   <>
-                     <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                       <h4 className="font-medium mb-2 text-sm sm:text-base">
-                         Telemetry Data:
-                       </h4>
-                       <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                         {JSON.stringify(realtimeData.telemetry, null, 2)}
-                       </pre>
-                     </div>
+          <TabsContent value="raw">
+            <Card className="industrial-card">
+              <CardHeader>
+                <CardTitle className="text-base sm:text-lg">
+                  Raw Telemetry Data
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Latest real-time sensor readings from ThingsBoard
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {realtimeData ? (
+                    <>
+                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                        <h4 className="font-medium mb-2 text-sm sm:text-base">
+                          Telemetry Data:
+                        </h4>
+                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
+                          {JSON.stringify(realtimeData.telemetry, null, 2)}
+                        </pre>
+                      </div>
 
-                     <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                       <h4 className="font-medium mb-2 text-sm sm:text-base">
-                         Attributes:
-                       </h4>
-                       <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                         {JSON.stringify(realtimeData.attributes, null, 2)}
-                       </pre>
-                     </div>
+                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                        <h4 className="font-medium mb-2 text-sm sm:text-base">
+                          Attributes:
+                        </h4>
+                        {/* <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
+                          {JSON.stringify(realtimeData.attributes, null, 2)}
+                        </pre> */}
+                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
+                          {JSON.stringify(
+                            deviceAttributes?.attributes ??
+                              realtimeData?.attributes ??
+                              {},
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
 
-                     <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                       <h4 className="font-medium mb-2 text-sm sm:text-base">
-                         Available Keys:
-                       </h4>
-                       <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
-                         {JSON.stringify(realtimeData.keys, null, 2)}
-                       </pre>
-                     </div>
+                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                        <h4 className="font-medium mb-2 text-sm sm:text-base">
+                          Available Keys:
+                        </h4>
+                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
+                          {JSON.stringify(realtimeData.keys, null, 2)}
+                        </pre>
+                      </div>
 
-                     <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                       <h4 className="font-medium mb-2 text-sm sm:text-base">
-                         Device Info:
-                       </h4>
-                       <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
-                         {JSON.stringify(
-                           {
-                             deviceId: realtimeData.deviceId,
-                             timestamp: new Date(
-                               realtimeData.timestamp
-                             ).toISOString(),
-                             dataAge: `${Math.round(
-                               (Date.now() - realtimeData.timestamp) / 1000
-                             )}s ago`,
-                           },
-                           null,
-                           2
-                         )}
-                       </pre>
-                     </div>
-                   </>
-                 ) : (
-                   <div className="text-center py-8 text-muted-foreground">
-                     <p className="text-sm sm:text-base">
-                       No real-time data available. Check if device is sending
-                       telemetry to ThingsBoard.
-                     </p>
-                   </div>
-                 )}
-               </div>
-             </CardContent>
-           </Card>
-         </TabsContent>
-       </Tabs>
-     </div>
-   </AppLayout>
- );
+                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                        <h4 className="font-medium mb-2 text-sm sm:text-base">
+                          Device Info:
+                        </h4>
+                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
+                          {JSON.stringify(
+                            {
+                              deviceId: realtimeData.deviceId,
+                              timestamp: new Date(
+                                realtimeData.timestamp
+                              ).toISOString(),
+                              dataAge: `${Math.round(
+                                (Date.now() - realtimeData.timestamp) / 1000
+                              )}s ago`,
+                            },
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p className="text-sm sm:text-base">
+                        No real-time data available. Check if device is sending
+                        telemetry to ThingsBoard.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppLayout>
+  );
 };
 
 // FIXED: Helper function to extract unit from key name
