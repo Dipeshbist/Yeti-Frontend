@@ -132,6 +132,13 @@ const DeviceDetail = () => {
     };
   }, [deviceId]);
 
+useEffect(() => {
+  if (realtimeData) {
+    generateTelemetryWidgets(realtimeData);
+  }
+}, [deviceAttributes, realtimeData]);
+
+
   // Helper function to format attribute names for better readability
   const formatAttributeName = (key: string): string => {
     // Handle common attribute names
@@ -233,68 +240,71 @@ const DeviceDetail = () => {
     }
   };
 
-const fetchLiveData = async () => {
-  if (!deviceId) return;
+  const fetchLiveData = async () => {
+    if (!deviceId) return;
 
-  try {
-    console.log("Fetching live data for:", deviceId);
+    try {
+      console.log("Fetching live data for:", deviceId);
 
-    const liveData = await api.getDeviceLiveData(deviceId, undefined, 30);
-    console.log("Live data result:", liveData);
+      const liveData = await api.getDeviceLiveData(deviceId, undefined, 30);
+      console.log("Live data result:", liveData);
 
-    if (liveData && liveData.dataCount > 0) {
-      const transformedData = {
-        deviceId: liveData.deviceId,
-        timestamp: liveData.timestamp,
-        telemetry: liveData.data || {},
-        attributes:
-          realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
-        keys: liveData.keys || [],
-      };
+      if (liveData && liveData.dataCount > 0) {
+        const transformedData = {
+          deviceId: liveData.deviceId,
+          timestamp: liveData.timestamp,
+          telemetry: liveData.data || {},
+          attributes:
+            realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
+          keys: liveData.keys || [],
+        };
 
-      // compute newest telemetry timestamp to show as "Last Seen"
-      const latestTs: number = (Object.values(transformedData.telemetry) as Array<{ timestamp: number }>).reduce(
-        (max: number, v) =>
-          v && typeof v.timestamp === "number" && v.timestamp > max
-            ? v.timestamp
-            : max,
-        0
-      );
-
-      if (latestTs > 0) {
-        setDevice((prev) =>
-          prev ? { ...prev, lastSeen: formatRelativeTime(latestTs) } : prev
+        // compute newest telemetry timestamp to show as "Last Seen"
+        const latestTs: number = (
+          Object.values(transformedData.telemetry) as Array<{
+            timestamp: number;
+          }>
+        ).reduce(
+          (max: number, v) =>
+            v && typeof v.timestamp === "number" && v.timestamp > max
+              ? v.timestamp
+              : max,
+          0
         );
+
+        if (latestTs > 0) {
+          setDevice((prev) =>
+            prev ? { ...prev, lastSeen: formatRelativeTime(latestTs) } : prev
+          );
+        }
+
+        setRealtimeData(transformedData);
+        generateTelemetryWidgets(transformedData);
+        setLastUpdated(new Date());
+
+        console.log("Updated with fresh live data:", transformedData);
+      } else {
+        console.log("No live data available - clearing display");
+        setRealtimeData(null);
+        setTelemetryWidgets([]);
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error("Live data fetch error:", error);
+
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/");
+        return;
       }
 
-      setRealtimeData(transformedData);
-      generateTelemetryWidgets(transformedData);
-      setLastUpdated(new Date());
-
-      console.log("Updated with fresh live data:", transformedData);
-    } else {
-      console.log("No live data available - clearing display");
-      setRealtimeData(null);
-      setTelemetryWidgets([]);
-      setLastUpdated(new Date());
+      console.warn("Failed to fetch live data, retrying in 5 seconds...");
     }
-  } catch (error) {
-    console.error("Live data fetch error:", error);
-
-    if (
-      error instanceof Error &&
-      error.message.includes("Authentication expired")
-    ) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      navigate("/");
-      return;
-    }
-
-    console.warn("Failed to fetch live data, retrying in 5 seconds...");
-  }
-};
-
+  };
 
   const fetchDeviceAttributes = async () => {
     if (!deviceId) return;
@@ -529,44 +539,101 @@ const fetchLiveData = async () => {
     return `${diffDays} days ago`;
   };
 
-  const generateTelemetryWidgets = (data: RealTimeData) => {
-    const widgets: TelemetryWidget[] = [];
-    const groupedBySensor = new Map<
-      string,
-      Array<{ key: string; data: any }>
-    >();
+  // Build { s1: "Energy Meter", s2: "..." } from server attribute "mb_attr"
+  const getSensorNameMapFromAttributes = (): Record<string, string> => {
+    const map: Record<string, string> = {};
+    const attrs = deviceAttributes?.attributes;
 
-    Object.entries(data.telemetry).forEach(([key, telemetryData]) => {
-      const sensorSystem = extractSensorSystem(key);
-      if (!groupedBySensor.has(sensorSystem)) {
-        groupedBySensor.set(sensorSystem, []);
+    // TB can return attributes as an array [{key, value, lastUpdateTs}, ...] or an object
+    let mbAttr: any;
+
+    if (Array.isArray(attrs)) {
+      const rec = attrs.find((a: any) => a?.key === "mb_attr");
+      mbAttr = rec?.value;
+    } else if (attrs && typeof attrs === "object") {
+      // if your backend ever normalizes attributes to an object
+      mbAttr = (attrs as any).mb_attr;
+    }
+
+    // mb_attr might be a JSON string
+    if (typeof mbAttr === "string") {
+      try {
+        mbAttr = JSON.parse(mbAttr);
+      } catch {
+        /* ignore parse error */
       }
-      groupedBySensor.get(sensorSystem)?.push({ key, data: telemetryData });
-    });
+    }
 
-    groupedBySensor.forEach((parameters, sensorSystem) => {
-const widget: TelemetryWidget = {
-  key: sensorSystem,
-  displayName:
-    sensorSystem === "internal"
-      ? "Internal Data"
-      : `Sensor System ${sensorSystem.toUpperCase()}`,
-  value: parameters,
-  timestamp: Math.max(...parameters.map((p) => p.data.timestamp)),
-  unit: "",
-  category: "system",
-  icon: "Cpu",
-  color: getColorForSensorSystem(sensorSystem),
-  path: sensorSystem,
+    // Expected: [{ sid: 1, name: "Energy Meter", data: [...] }, ...]
+    if (Array.isArray(mbAttr)) {
+      for (const item of mbAttr) {
+        if ((item?.sid ?? null) !== null && item?.name) {
+          map[`s${item.sid}`] = String(item.name);
+        }
+      }
+    }
+
+    return map;
+  };
+
+  // Read sensor names from telemetry keys like "s1/dev_name"
+  const getSensorNameMapFromTelemetry = (
+    telemetry: Record<string, { value: any; timestamp: number }>
+  ): Record<string, string> => {
+    const map: Record<string, string> = {};
+    Object.entries(telemetry || {}).forEach(([key, val]) => {
+      const m = key.match(/^(s\d+)\/dev_name$/i);
+      if (m && val && val.value != null) {
+        map[m[1].toLowerCase()] = String(val.value);
+      }
+    });
+    return map;
+  };
+
+const generateTelemetryWidgets = (data: RealTimeData) => {
+  const widgets: TelemetryWidget[] = [];
+  const groupedBySensor = new Map<string, Array<{ key: string; data: any }>>();
+
+  Object.entries(data.telemetry).forEach(([key, telemetryData]) => {
+    const sensorSystem = extractSensorSystem(key);
+    if (!groupedBySensor.has(sensorSystem)) {
+      groupedBySensor.set(sensorSystem, []);
+    }
+    groupedBySensor.get(sensorSystem)!.push({ key, data: telemetryData });
+  });
+
+  // Build name maps from telemetry and attributes.
+  // Prefer telemetry-provided names (s1/dev_name) but fall back to mb_attr.
+  const teleNameMap = getSensorNameMapFromTelemetry(data.telemetry);
+  const attrNameMap = getSensorNameMapFromAttributes();
+  const nameMap = { ...attrNameMap, ...teleNameMap }; // telemetry wins if both exist
+
+  groupedBySensor.forEach((parameters, sensorSystem) => {
+    const displayName =
+      sensorSystem === "internal"
+        ? "Internal Data"
+        : nameMap[sensorSystem] ||
+          `Sensor System ${sensorSystem.toUpperCase()}`;
+
+    const widget: TelemetryWidget = {
+      key: sensorSystem,
+      displayName,
+      value: parameters,
+      timestamp: Math.max(...parameters.map((p) => p.data.timestamp)),
+      unit: "",
+      category: "system",
+      icon: "Cpu",
+      color: getColorForSensorSystem(sensorSystem),
+      path: sensorSystem,
+    };
+    widgets.push(widget);
+  });
+
+  widgets.sort((a, b) => a.key.localeCompare(b.key));
+  setTelemetryWidgets(widgets);
+  console.log("Sensor name map used for titles:", nameMap);
 };
 
-      widgets.push(widget);
-    });
-
-    widgets.sort((a, b) => a.key.localeCompare(b.key));
-    setTelemetryWidgets(widgets);
-    console.log("Generated consolidated sensor widgets:", widgets);
-  };
 
   // FIXED: More flexible sensor system extraction
   // const extractSensorSystem = (key: string): string => {
