@@ -21,7 +21,7 @@ const DashboardView = () => {
         <h1 className="text-2xl font-bold mb-4">Dashboard View</h1>
         <div className="w-full h-96 border rounded-lg">
           <iframe
-            src={`http://152.42.209.180:8080/dashboard/${dashboardId}`}
+            src={`72.60.205.104:8080/dashboard/${dashboardId}`}
             // src={`http://152.42.209.180:8080/dashboard/${dashboardId}?token=${localStorage.getItem(
             //   "token"
             // )}`}

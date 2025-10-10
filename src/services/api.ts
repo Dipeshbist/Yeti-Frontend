@@ -10,7 +10,7 @@
 
 const BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://api-yeti.nepaldigital.systems" // Your actual backend server:
+    ? "https://api.garud.cloud" // Your actual backend server:
     : "http://localhost:8000";      // Local development
 
   // const BASE_URL =

@@ -44,7 +44,7 @@ const Login = () => {
       // Dynamic URL that works in both development and production
     const apiUrl =
       process.env.NODE_ENV === "production"
-        ? "https://api-yeti.nepaldigital.systems"
+        ? "https://api.garud.cloud"
         : "http://localhost:8000";
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: "POST",
