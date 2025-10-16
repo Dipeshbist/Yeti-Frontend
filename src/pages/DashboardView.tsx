@@ -7,13 +7,19 @@ const DashboardView = () => {
   const navigate = useNavigate();
   const { dashboardId } = useParams();
 
+  const userData = localStorage.getItem("user");
+  const user = userData ? JSON.parse(userData) : null;
+  const token =
+    user?.role === "admin"
+      ? localStorage.getItem("adminToken") || ""
+      : localStorage.getItem("token") || "";
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+    if (!token || !user) {
       navigate("/");
       return;
     }
-  }, [navigate]);
+  }, [navigate, token, user]);
 
   return (
     <AppLayout>
@@ -21,10 +27,9 @@ const DashboardView = () => {
         <h1 className="text-2xl font-bold mb-4">Dashboard View</h1>
         <div className="w-full h-96 border rounded-lg">
           <iframe
-            src={`72.60.205.104:8080/dashboard/${dashboardId}`}
-            // src={`http://152.42.209.180:8080/dashboard/${dashboardId}?token=${localStorage.getItem(
-            //   "token"
-            // )}`}
+            src={`http://72.60.205.104:8080/dashboard/${dashboardId}?token=${encodeURIComponent(
+              token
+            )}`}
             className="w-full h-full"
             title="ThingsBoard Dashboard"
           />

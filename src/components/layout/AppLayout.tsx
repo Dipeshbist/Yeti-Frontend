@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Moon, Sun } from "lucide-react";
+import { ReactNode } from "react";
+
 
 interface AppLayoutProps {
   children: React.ReactNode;

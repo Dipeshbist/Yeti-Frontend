@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -90,9 +90,17 @@ interface LiveDataResponse {
   isLive: boolean;
 }
 
+interface LogEntry {
+  timestamp: number;
+  value: string;
+}
+
 const DeviceDetail = () => {
   const { deviceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from as "admin" | "devices" | undefined;
+
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [realtimeData, setRealtimeData] = useState<RealTimeData | null>(null);
   const [historicalData, setHistoricalData] = useState<TelemetryData[]>([]);
@@ -109,15 +117,54 @@ const DeviceDetail = () => {
   );
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/");
-      return;
-    }
-    if (!deviceId) return;
-    initializeDeviceData();
-  }, [deviceId, navigate]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const logsDedupRef = useRef<Set<string>>(new Set());
+
+  const [role, setRole] = useState<"admin" | "user">("user");
+
+
+  // Helper: push a log line if not duplicate
+  const pushLog = (ts: number, raw: any) => {
+    const value = typeof raw === "string" ? raw : JSON.stringify(raw);
+    const key = `${ts}|${value}`;
+    if (logsDedupRef.current.has(key)) return;
+    logsDedupRef.current.add(key);
+    setLogs((prev) => {
+      const next = [{ timestamp: ts, value }, ...prev];
+      // keep last 200
+      return next.slice(0, 200);
+    });
+  };
+
+useEffect(() => {
+  const normalUser = localStorage.getItem("user");
+  const adminUser = localStorage.getItem("adminUser");
+
+  const parsedUser = normalUser
+    ? JSON.parse(normalUser)
+    : adminUser
+    ? JSON.parse(adminUser)
+    : null;
+
+  const detectedRole: "admin" | "user" =
+    parsedUser?.role === "admin" ? "admin" : "user";
+  setRole(detectedRole); // ✅ Store it in state
+
+  const token =
+    detectedRole === "admin"
+      ? localStorage.getItem("adminToken")
+      : localStorage.getItem("token");
+
+  if (!token || !parsedUser) {
+    console.warn("No valid session — redirecting to login");
+    navigate("/login");
+    return;
+  }
+
+  initializeDeviceData(detectedRole);
+}, [deviceId, navigate]);
+
+
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -191,140 +238,164 @@ const DeviceDetail = () => {
     return String(value);
   };
 
-  const initializeDeviceData = async () => {
-    try {
-      setIsLoading(true);
-      await fetchRealDeviceData();
-      // Add this call to fetch attributes
-      await fetchDeviceAttributes();
-    } catch (error) {
-      console.error("Device initialization error:", error);
-      if (
-        error instanceof Error &&
-        error.message.includes("Authentication expired")
-      ) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/");
-        return;
-      }
-      toast({
-        title: "Initialization Error",
-        description: "Failed to load device data",
-        variant: "destructive",
-        duration: 2000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const initializeDeviceData = async (role?: "admin" | "user") => {
+   try {
+     setIsLoading(true);
+     await fetchRealDeviceData(role);
+     // Add this call to fetch attributes
+     await fetchDeviceAttributes(role);
+     if (role === "admin") {
+       await fetchLogsHistory(24, 200, role);
+     }
+ // Fetch last 24 hours of logs, max 200 entries
+   } catch (error) {
+     console.error("Device initialization error:", error);
+     if (
+       error instanceof Error &&
+       error.message.includes("Authentication expired")
+     ) {
+       localStorage.removeItem("token");
+       localStorage.removeItem("user");
+             localStorage.removeItem("adminToken");
+             localStorage.removeItem("adminUser");
+       navigate("/");
+       return;
+     }
+     toast({
+       title: "Initialization Error",
+       description: "Failed to load device data",
+       variant: "destructive",
+       duration: 2000,
+     });
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
-  const fetchRealtimeData = async () => {
+  const fetchLogsHistory = async (hours: number = 24, limit = 200,role?: "admin" | "user") => {
     if (!deviceId) return;
-
     try {
-      console.log("Fetching initial realtime data for:", deviceId);
-      const result = await api.getDeviceRealtime(deviceId);
-      console.log("Initial realtime data result:", result);
+      const result = await api.getDeviceHistory(deviceId, "logs", hours, role);
+      const arr = (result?.data?.logs ?? []) as Array<{
+        timestamp: number;
+        value: any;
+      }>;
+      // newest first
+      const normalized = arr
+        .map((p) => ({
+          timestamp: p.timestamp,
+          value:
+            typeof p.value === "string" ? p.value : JSON.stringify(p.value),
+        }))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
 
-      if (result) {
-        setRealtimeData(result);
-        generateTelemetryWidgets(result);
-        setLastUpdated(new Date());
-      }
-    } catch (error) {
-      console.error("Initial realtime data fetch error:", error);
-      // Fallback to live data if regular realtime fails
-      await fetchLiveData();
+      const dedup = new Set<string>();
+      logsDedupRef.current = dedup;
+      normalized.forEach((l) => dedup.add(`${l.timestamp}|${l.value}`));
+      setLogs(normalized);
+    } catch (e) {
+      console.error("fetchLogsHistory error:", e);
     }
   };
 
-const fetchLiveData = async () => {
+  // const fetchRealtimeData = async () => {
+  //   if (!deviceId) return;
+
+  //   try {
+  //     console.log("Fetching initial realtime data for:", deviceId);
+  //     const result = await api.getDeviceRealtime(deviceId);
+  //     console.log("Initial realtime data result:", result);
+
+  //     if (result) {
+  //       setRealtimeData(result);
+  //       generateTelemetryWidgets(result);
+  //       setLastUpdated(new Date());
+  //     }
+  //   } catch (error) {
+  //     console.error("Initial realtime data fetch error:", error);
+  //     // Fallback to live data if regular realtime fails
+  //     await fetchLiveData();
+  //   }
+  // };
+
+const fetchLiveData = async (role?: "admin" | "user") => {
   if (!deviceId) return;
 
   try {
-    console.log("Fetching live data for:", deviceId);
+    // use tighter 10-second window
+    const liveData = await api.getDeviceLiveData(
+      deviceId,
+      undefined,
+      10,
+      role
+    );
+    const keysData = liveData?.data || {};
+    const now = Date.now();
 
-    const liveData = await api.getDeviceLiveData(deviceId, undefined, 30);
-    console.log("Live data result:", liveData);
+    // keep only telemetry marked as isLive=true
+    const filteredTelemetry: Record<string, any> = {};
+    Object.entries(keysData).forEach(([key, val]: any) => {
+      if (val?.isLive === true) filteredTelemetry[key] = val;
+    });
 
-    // Consider device ONLINE if live telemetry exists within last 30s
-    const isOnline = !!(
-      liveData &&
-      (liveData.isLive || (liveData.dataCount ?? 0) > 0)
+    Object.entries(keysData).forEach(([key, val]: any) => {
+      if (val?.isLive === true && key.toLowerCase().includes("logs")) {
+        pushLog(val.timestamp ?? Date.now(), val.value);
+      }
+    });
+
+    const isOnline = Object.keys(filteredTelemetry).length > 0;
+
+    setDevice((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: isOnline ? "online" : "offline",
+            lastSeen: isOnline ? prev.lastSeen : "No recent telemetry",
+          }
+        : prev
     );
 
-    if (isOnline) {
-      const data = liveData.data || {};
-
-      // compute newest telemetry timestamp for Last Seen
-      const latestTs = Object.values(data as Record<string, any>).reduce(
-        (max, d: any) =>
-          d && typeof d.timestamp === "number" && d.timestamp > max
-            ? d.timestamp
-            : max,
-        0
-      );
-
-      const transformedData = {
-        deviceId: liveData.deviceId,
-        timestamp: liveData.timestamp,
-        telemetry: data,
-        attributes:
-          realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
-        keys: liveData.keys || [],
-      };
-
-      setDevice((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "online",
-              ...(latestTs ? { lastSeen: formatRelativeTime(latestTs) } : {}),
-            }
-          : prev
-      );
-
-      setRealtimeData(transformedData);
-      generateTelemetryWidgets(transformedData);
-      setLastUpdated(new Date());
-    } else {
-      // No fresh data => OFFLINE
-      setRealtimeData(null);
+    // ⛔ if offline, clear telemetry widgets
+    if (!isOnline) {
+      setRealtimeData({
+        deviceId,
+        timestamp: now,
+        telemetry: {},
+        attributes: deviceAttributes?.attributes ?? {},
+        keys: [],
+      });
       setTelemetryWidgets([]);
-      setLastUpdated(new Date());
-
-      // Try to show a meaningful Last Seen from server attributes
-      const lastAct = readAttr(
-        deviceAttributes?.attributes,
-        "lastActivityTime"
-      );
-      setDevice((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "offline",
-              ...(typeof lastAct === "number"
-                ? { lastSeen: formatRelativeTime(lastAct) }
-                : {}),
-            }
-          : prev
-      );
+      return;
     }
+
+    // ✅ online: update real-time state
+    setRealtimeData({
+      deviceId: liveData.deviceId,
+      timestamp: now,
+      telemetry: filteredTelemetry,
+      attributes:
+        realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
+      keys: Object.keys(filteredTelemetry),
+    });
+
+    setLastUpdated(new Date());
   } catch (error) {
     console.error("Live data fetch error:", error);
 
-    if (
-      error instanceof Error &&
-      error.message.includes("Authentication expired")
-    ) {
+    // Handle expired token or missing session
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    if (!user) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      localStorage.removeItem("customerId");
       navigate("/");
-      return;
     }
   }
 };
+
+
 
 
   // Read an attribute by key from TB attributes that may be an array [{key,value}] or an object
@@ -342,7 +413,7 @@ const fetchLiveData = async () => {
   };
 
 
-  const fetchDeviceAttributes = async () => {
+  const fetchDeviceAttributes = async (role?: "admin" | "user") => {
     if (!deviceId) return;
 
     try {
@@ -350,7 +421,11 @@ const fetchLiveData = async () => {
       console.log("Fetching device attributes for:", deviceId);
 
       // Fetch server attributes
-      const result = await api.getDeviceAttributes(deviceId, "SERVER_SCOPE");
+      const result = await api.getDeviceAttributes(
+        deviceId,
+        "SERVER_SCOPE",
+        role
+      );
       console.log("Device attributes result:", result);
 
       if (result && result.attributes) {
@@ -457,12 +532,12 @@ const fetchLiveData = async () => {
     return colors[index % colors.length];
   };
 
-  const fetchRealDeviceData = async () => {
+  const fetchRealDeviceData = async (role?: "admin" | "user") => {
     try {
       if (!deviceId) return;
 
       console.log("Fetching device info for:", deviceId);
-      const deviceResult = await api.getDeviceInfo(deviceId);
+      const deviceResult = await api.getDeviceInfo(deviceId, role);
       console.log("Device info result:", deviceResult);
 
       if (deviceResult.error) {
@@ -488,7 +563,7 @@ const fetchLiveData = async () => {
       setDevice(transformedDevice);
       console.log("Transformed device:", transformedDevice);
 
-      await fetchRealtimeData();
+      // await fetchRealtimeData();
       await fetchHistoricalData();
       await fetchDeviceAttributes();
     } catch (error) {
@@ -505,12 +580,12 @@ const fetchLiveData = async () => {
     }
   };
 
-  const fetchHistoricalData = async () => {
+  const fetchHistoricalData = async (role?: "admin" | "user") => {
     if (!deviceId) return;
 
     try {
       console.log("Fetching historical data for:", deviceId);
-      const result = await api.getDeviceHistory(deviceId, undefined, 24);
+      const result = await api.getDeviceHistory(deviceId, undefined, 24, role);
       console.log("Historical data result:", result);
 
       if (result && result.data) {
@@ -836,11 +911,25 @@ const fetchLiveData = async () => {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => navigate("/devices")}
+              onClick={() => {
+                // ✅ Step 1: try browser history first (best UX)
+                if (window.history.length > 1) {
+                  navigate(-1);
+                  return;
+                }
+
+                // ✅ Step 2: if no history (e.g., deep-linked)
+                if (from === "admin") {
+                  navigate("/admin");
+                } else {
+                  navigate("/devices");
+                }
+              }}
               className="h-8 w-8 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
+
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                 <h1 className="text-lg sm:text-xl font-bold text-foreground">
@@ -918,7 +1007,7 @@ const fetchLiveData = async () => {
             )}
           </div>
 
-          {telemetryWidgets.length > 0 ? (
+          {device.status === "online" && telemetryWidgets.length > 0 ? (
             <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {telemetryWidgets.map((widget, index) => (
                 <Card
@@ -1138,87 +1227,163 @@ const fetchLiveData = async () => {
           </TabsContent>
 
           <TabsContent value="raw">
-            <Card className="industrial-card">
-              <CardHeader>
-                <CardTitle className="text-base sm:text-lg">
-                  Raw Telemetry Data
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Latest real-time sensor readings from ThingsBoard
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {realtimeData ? (
-                    <>
-                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                        <h4 className="font-medium mb-2 text-sm sm:text-base">
-                          Telemetry Data:
-                        </h4>
-                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                          {JSON.stringify(realtimeData.telemetry, null, 2)}
-                        </pre>
-                      </div>
+            {/* Grid with two columns on large screens, stacked on small */}
+            {/* ✅ Dynamically adjust layout based on role */}
+            <div
+              className={`grid gap-4 ${
+                role === "admin" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+              }`}
+            >
+              {/* ==== Raw Telemetry Data ==== */}
+              <Card className="industrial-card">
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">
+                    Raw Telemetry Data
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    Latest real-time sensor readings from ThingsBoard
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {realtimeData ? (
+                      <>
+                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                          <h4 className="font-medium mb-2 text-sm sm:text-base">
+                            Telemetry Data:
+                          </h4>
+                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
+                            {JSON.stringify(realtimeData.telemetry, null, 2)}
+                          </pre>
+                        </div>
 
-                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                        <h4 className="font-medium mb-2 text-sm sm:text-base">
-                          Attributes:
-                        </h4>
-                        {/* <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                          {JSON.stringify(realtimeData.attributes, null, 2)}
-                        </pre> */}
-                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                          {JSON.stringify(
-                            deviceAttributes?.attributes ??
-                              realtimeData?.attributes ??
-                              {},
-                            null,
-                            2
-                          )}
-                        </pre>
-                      </div>
+                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                          <h4 className="font-medium mb-2 text-sm sm:text-base">
+                            Attributes:
+                          </h4>
+                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
+                            {JSON.stringify(
+                              deviceAttributes?.attributes ??
+                                realtimeData?.attributes ??
+                                {},
+                              null,
+                              2
+                            )}
+                          </pre>
+                        </div>
 
-                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                        <h4 className="font-medium mb-2 text-sm sm:text-base">
-                          Available Keys:
-                        </h4>
-                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
-                          {JSON.stringify(realtimeData.keys, null, 2)}
-                        </pre>
+                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
+                          <h4 className="font-medium mb-2 text-sm sm:text-base">
+                            Available Keys:
+                          </h4>
+                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
+                            {JSON.stringify(realtimeData.keys, null, 2)}
+                          </pre>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm sm:text-base">
+                          No real-time data available. Check if device is
+                          sending telemetry to ThingsBoard.
+                        </p>
                       </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                      <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                        <h4 className="font-medium mb-2 text-sm sm:text-base">
-                          Device Info:
-                        </h4>
-                        <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
-                          {JSON.stringify(
-                            {
-                              deviceId: realtimeData.deviceId,
-                              timestamp: new Date(
-                                realtimeData.timestamp
-                              ).toISOString(),
-                              dataAge: `${Math.round(
-                                (Date.now() - realtimeData.timestamp) / 1000
-                              )}s ago`,
-                            },
-                            null,
-                            2
-                          )}
-                        </pre>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p className="text-sm sm:text-base">
-                        No real-time data available. Check if device is sending
-                        telemetry to ThingsBoard.
-                      </p>
+              {/* ==== Logs (side by side) ==== */}
+              {role === "admin" && (
+                <Card className="industrial-card">
+                  <CardHeader>
+                    <CardTitle className="text-base sm:text-lg">Logs</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      Live and historical logs from ThingsBoard telemetry key{" "}
+                      <code>logs</code>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchLogsHistory(24, 200)}
+                      >
+                        Refresh Logs
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          logsDedupRef.current.clear();
+                          setLogs([]);
+                        }}
+                      >
+                        Clear
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Showing {logs.length} entr
+                        {logs.length === 1 ? "y" : "ies"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+
+                    {logs.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground text-sm">
+                        No logs available in the selected window.
+                      </div>
+                    ) : (
+                      <ul className="space-y-2 max-h-96 overflow-y-auto">
+                        {logs.map((entry, idx) => (
+                          <li
+                            key={`${entry.timestamp}-${idx}`}
+                            className="p-3 rounded border bg-muted/30"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(entry.timestamp).toLocaleString()}
+                                </div>
+                                <pre className="whitespace-pre-wrap break-words text-sm mt-1">
+                                  {entry.value}
+                                </pre>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0"
+                                onClick={() =>
+                                  navigator.clipboard.writeText(entry.value)
+                                }
+                                title="Copy"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                >
+                                  <rect
+                                    x="9"
+                                    y="9"
+                                    width="13"
+                                    height="13"
+                                    rx="2"
+                                    ry="2"
+                                  ></rect>
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

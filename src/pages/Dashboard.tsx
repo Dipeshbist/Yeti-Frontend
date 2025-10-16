@@ -65,8 +65,15 @@ const handleRefresh = async () => {
 
   useEffect(() => {
     // Check if user has valid JWT token
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+const userData = localStorage.getItem("user");
+let token = "";
+if (userData) {
+  const parsedUser = JSON.parse(userData);
+  token =
+    parsedUser.role === "admin"
+      ? localStorage.getItem("adminToken") || ""
+      : localStorage.getItem("token") || "";
+}
 
     if (!token || !userData) {
       toast({
@@ -90,12 +97,21 @@ const handleRefresh = async () => {
   }, [navigate]);
 
 const handleLogout = () => {
-  // Clear all stored data
-  localStorage.removeItem("token");
+  const userData = localStorage.getItem("user");
+  const user = userData ? JSON.parse(userData) : null;
+
+  if (user?.role === "admin") {
+    localStorage.removeItem("adminToken");
+  } else {
+    localStorage.removeItem("token");
+  }
+
   localStorage.removeItem("user");
   localStorage.removeItem("customerId");
+
   navigate("/");
 };
+
 
   const initializeDashboard = async () => {
     try {

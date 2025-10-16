@@ -1,13 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
-import {
-  User,
-  Settings,
-  LogOut,
-  UserCircle,
-  Mail,
-  Building,
-  Loader2,
-} from "lucide-react";
+import { User, LogOut, Mail, Building, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,13 +14,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
+import { getCurrentUser, isAdmin } from "@/utils/auth";
 
 interface UserProfile {
   id: string;
   email: string;
   firstName?: string;
   lastName?: string;
-  customerId: string;
+  role?: "admin" | "user";
+  customerId?: string | null;
 }
 
 export const UserProfileDropdown = () => {
@@ -35,7 +30,6 @@ export const UserProfileDropdown = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user profile on component mount
   useEffect(() => {
     loadUserProfile();
   }, []);
@@ -43,89 +37,71 @@ export const UserProfileDropdown = () => {
   const loadUserProfile = async () => {
     try {
       setIsLoading(true);
-      const result = await api.getProfile();
+      const role = isAdmin() ? "admin" : "user";
+      const localUser = getCurrentUser(role);
+      const result = await api.getProfile(role);
 
-      if (result.success && result.data) {
-        setUserProfile(result.data);
+      if (result.success && result.user) {
+        setUserProfile(result.user);
+      } else if (localUser) {
+        setUserProfile(localUser);
       } else {
-        // Fallback to localStorage data if profile fetch fails
-        const userData = localStorage.getItem("user");
-        if (userData) {
-          const parsedUser = JSON.parse(userData);
-          setUserProfile(parsedUser);
-        }
+        throw new Error("Failed to fetch profile");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load user profile:", error);
 
-      // Fallback to localStorage
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        try {
-          const parsedUser = JSON.parse(userData);
-          setUserProfile(parsedUser);
-        } catch (parseError) {
-          console.error("Failed to parse user data:", parseError);
-        }
-      }
+      // Clear tokens and redirect
+      localStorage.removeItem("token");
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("customerId");
+      navigate("/");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    // Clear all authentication data
+const handleLogout = () => {
+  const role = isAdmin() ? "admin" : "user";
+
+  if (role === "admin") {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
+  } else {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("customerId");
+  }
 
-    setUserProfile(null);
+  toast({
+    title: "Logged Out",
+    description: `Successfully logged out from ${role} account.`,
+  });
 
-    toast({
-      title: "Logged Out",
-      description:
-        "Successfully logged out. You can now login with different credentials.",
-    });
+  navigate("/");
+};
 
-    navigate("/");
-  };
 
-  const handleProfile = () => {
-    navigate("/settings");
-  };
-
-  const handleSettings = () => {
-    navigate("/settings");
-  };
-
-  // Get display name and initials
   const getDisplayName = () => {
     if (!userProfile) return "Unknown User";
-
-    if (userProfile.firstName && userProfile.lastName) {
+    if (userProfile.firstName && userProfile.lastName)
       return `${userProfile.firstName} ${userProfile.lastName}`;
-    } else if (userProfile.firstName) {
-      return userProfile.firstName;
-    } else {
-      return userProfile.email || "Unknown User";
-    }
+    if (userProfile.firstName) return userProfile.firstName;
+    return userProfile.email || "Unknown User";
   };
 
   const getInitials = () => {
     const name = getDisplayName();
     if (name === "Unknown User") return "U";
-
     const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return (parts[0]?.charAt(0) + parts[1]?.charAt(0)).toUpperCase();
-    }
-    return name.charAt(0).toUpperCase();
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name[0].toUpperCase();
   };
 
   const getAccountType = () => {
     if (!userProfile) return "Customer Account";
-
-    // You can expand this based on your user roles
     return userProfile.customerId ? "Customer Account" : "User Account";
   };
 
@@ -193,16 +169,6 @@ export const UserProfileDropdown = () => {
             </div>
           </DropdownMenuItem>
         )}
-
-        {/* <DropdownMenuItem onClick={handleProfile} className="cursor-pointer">
-          <UserCircle className="mr-2 h-4 w-4" />
-          <span>Profile Settings</span>
-        </DropdownMenuItem> */}
-
-        {/* <DropdownMenuItem onClick={handleSettings} className="cursor-pointer">
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Account Settings</span>
-        </DropdownMenuItem> */}
 
         <DropdownMenuSeparator />
 

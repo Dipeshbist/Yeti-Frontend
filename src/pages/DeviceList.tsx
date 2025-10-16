@@ -51,11 +51,18 @@ const DeviceList = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/");
-      return;
-    }
+const userData = localStorage.getItem("user");
+const user = userData ? JSON.parse(userData) : null;
+const token =
+  user?.role === "admin"
+    ? localStorage.getItem("adminToken") || ""
+    : localStorage.getItem("token") || "";
+
+if (!token || !user) {
+  navigate("/");
+  return;
+}
+
     initializeDeviceList();
   }, [navigate]);
 
@@ -540,7 +547,11 @@ const DeviceList = () => {
               <Card
                 key={device.id}
                 className="telemetry-card cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => navigate(`/devices/${device.id}`)}
+                onClick={() =>
+                  navigate(`/devices/${device.id}`, {
+                    state: { from: "devices" },
+                  })
+                }
               >
                 {" "}
                 <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4">

@@ -1,9 +1,5 @@
-import { useState } from "react"
-import { NavLink, useLocation } from "react-router-dom"
-import {  
-  Cpu, 
-  Zap,
-} from "lucide-react"
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Cpu, Zap, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -13,24 +9,25 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { useNavigate } from "react-router-dom";
-
-const navigationItems = [
-  { title: "Devices", url: "/devices", icon: Cpu },
-];
+} from "@/components/ui/sidebar";
+import { isAdmin } from "@/utils/auth";
 
 export function AppSidebar() {
   const navigate = useNavigate();
-  const { state } = useSidebar()
-  const location = useLocation()
-  const currentPath = location.pathname
-  const collapsed = state === "collapsed"
+  const { state } = useSidebar();
+  const location = useLocation();
+  const collapsed = state === "collapsed";
 
-  const isActive = (path: string) => currentPath === path || currentPath.startsWith(path + "/")
+  const currentPath = location.pathname;
+  const isActive = (path: string) =>
+    currentPath === path || currentPath.startsWith(path + "/");
 
+ const baseItems = [{ title: "Devices", url: "/devices", icon: Cpu }];
+ const adminItems = [{ title: "Admin Dashboard", url: "/admin", icon: Zap }];
+
+ // ✅ Admin sees only Admin Dashboard; users see Devices
+ const navigationItems = isAdmin() ? adminItems : baseItems;
   return (
     <Sidebar
       className={`${
@@ -39,26 +36,12 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarContent className="bg-sidebar">
+        {/* ✅ Header / Brand section */}
         <div
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(isAdmin() ? "/admin" : "/dashboard")}
           className="flex items-center gap-3 p-6 border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           title="Go to Dashboard"
         >
-          {/* <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
-            <Zap className="w-4 h-4 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div>
-              <h1 className="font-bold text-lg text-sidebar-foreground">
-                Yeti Insight
-              </h1>
-              <p className="text-xs text-sidebar-foreground/60">
-                Industrial IoT
-              </p>
-            </div>
-          )} */}
-
-          {/* Replace the Zap icon with your Yeti logo */}
           <div className="flex items-center justify-center">
             <img
               src="/yeti-logo.png"
@@ -78,9 +61,9 @@ export function AppSidebar() {
               </p>
             </div>
           )}
-
         </div>
 
+        {/* ✅ Navigation Menu */}
         <SidebarGroup className="px-4 py-6">
           <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-medium mb-4">
             {!collapsed && "NAVIGATION"}
@@ -94,7 +77,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
-                        `sidebar-nav-item ${isActive ? "active" : ""}`
+                        `sidebar-nav-item flex items-center gap-2 rounded-md px-2 py-1.5 ${
+                          isActive
+                            ? "bg-sidebar-accent text-accent-foreground"
+                            : ""
+                        } hover:bg-sidebar-accent transition-colors`
                       }
                     >
                       <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -108,18 +95,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* Status indicator */}
-        {/* <div className="mt-auto p-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="status-indicator bg-success animate-pulse"></div>
-            {!collapsed && (
-              <span className="text-xs text-sidebar-foreground/60">
-                System Online
-              </span>
-            )}
-          </div>
-        </div> */}
       </SidebarContent>
     </Sidebar>
   );

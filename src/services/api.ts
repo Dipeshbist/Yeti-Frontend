@@ -18,7 +18,18 @@ const BASE_URL =
   //     ? "http://152.42.209.180:8000" // Your actual backend server
   //     : "http://localhost:8000"; 
 // Get token from localStorage
-const getAuthToken = () => localStorage.getItem('token');
+const getAuthToken = (role?: "admin" | "user") => {
+  try {
+    if (role === "admin") {
+      return localStorage.getItem("adminToken") || "";
+    }
+    return localStorage.getItem("token") || "";
+  } catch {
+    return "";
+  }
+};
+
+
 
 export interface ApiResponse<T> {
   data: T;
@@ -231,42 +242,42 @@ export const checkApiHealth = async (): Promise<boolean> => {
   }
 };
 
-const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
-  
+// Update apiCall to accept role
+const apiCall = async (endpoint: string, options: RequestInit = {}, role?: "admin" | "user") => {
+let token = getAuthToken(role);
+if (!token) {
+  // fallback for either role
+  token =
+    localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
+}
+
   const config: RequestInit = {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
   };
 
-  try {
-    const response = await fetch(`${BASE_URL}${endpoint}`, config);
-    
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('customerId');
-    
-      window.location.href = '/';
-      throw new Error('Authentication expired');
-    }
-    
-    if (!response.ok) {
-      const errorText = `Server returned ${response.status}: ${response.statusText}`;
-      throw new Error(errorText);
-    }
+  const response = await fetch(`${BASE_URL}${endpoint}`, config);
 
-    return response.json();
-  } catch (error) {
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      // Network error occurred during fetch, handle as needed
-    }
-    throw error;
+  if (response.status === 401) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("customerId");
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
+    window.location.href = "/";
+    throw new Error("Authentication expired");
   }
+
+  if (!response.ok) {
+    const errorText = `Server returned ${response.status}: ${response.statusText}`;
+    throw new Error(errorText);
+  }
+
+  return response.json();
 };
 
 export const api = {
@@ -277,14 +288,15 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  getProfile: () => apiCall("/auth/profile"),
+  getProfile: (role?: "admin" | "user") => apiCall("/auth/profile", {}, role),
 
   // Protected device endpoints
   getMyDevices: (page = 0) => apiCall(`/my-devices?page=${page}`),
 
   getMyDashboards: (page = 0) => apiCall(`/my-dashboards?page=${page}`),
 
-  getDeviceInfo: (deviceId: string) => apiCall(`/devices/info/${deviceId}`),
+  getDeviceInfo: (deviceId: string, role?: "admin" | "user") =>
+    apiCall(`/devices/info/${deviceId}`, {}, role),
 
   getDeviceRealtime: (deviceId: string, keys?: string) => {
     const url = keys
@@ -293,32 +305,39 @@ export const api = {
     return apiCall(url);
   },
 
-  getDeviceHistory: (deviceId: string, keys?: string, hours = 24) => {
+  getDeviceHistory: (
+    deviceId: string,
+    keys?: string,
+    hours = 24,
+    role?: "admin" | "user"
+  ) => {
     const params = new URLSearchParams({ hours: hours.toString() });
     if (keys) params.append("keys", keys);
-    return apiCall(`/devices/${deviceId}/history?${params}`);
+    return apiCall(`/devices/${deviceId}/history?${params}`, {}, role);
   },
 
   // Add this new function for getting device attributes
   getDeviceAttributes: (
     deviceId: string,
-    scope: "CLIENT_SCOPE" | "SERVER_SCOPE" | "SHARED_SCOPE" = "SERVER_SCOPE"
+    scope: "CLIENT_SCOPE" | "SERVER_SCOPE" | "SHARED_SCOPE" = "SERVER_SCOPE",
+    role?: "admin" | "user"
   ) => {
     const url = `/devices/${deviceId}/attributes/${scope}`;
-    return apiCall(url);
+    return apiCall(url, {}, role);
   },
 
   // Add these new live data functions
   getDeviceLiveData: (
     deviceId: string,
     keys?: string[],
-    maxAge: number = 30
+    maxAge: number = 30,
+    role?: "admin" | "user"
   ) => {
     const keysParam = keys ? keys.join(",") : "";
     const url = keys
       ? `/devices/${deviceId}/live?keys=${keysParam}&maxAge=${maxAge}`
       : `/devices/${deviceId}/live?maxAge=${maxAge}`;
-    return apiCall(url);
+    return apiCall(url, {}, role);
   },
 
   async getDeviceFreshData(
