@@ -118,8 +118,12 @@ const Login = () => {
                 </label>
                 <input
                   type="email"
-                  className="w-full px-3 py-2 text-sm border rounded focus:ring-1 focus:ring-ring focus:border-ring"
-                  placeholder="test@demo.com"
+                  className="w-full px-3 py-2 text-sm border rounded 
+             bg-white text-gray-900 
+             dark:bg-gray-800 dark:text-gray-100
+             placeholder-gray-400 dark:placeholder-gray-500
+             focus:ring-1 focus:ring-ring focus:border-ring"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
@@ -133,7 +137,11 @@ const Login = () => {
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
-                    className="w-full px-3 py-2 text-sm border rounded focus:ring-1 focus:ring-ring focus:border-ring pr-10"
+                    className="w-full px-3 py-2 text-sm border rounded 
+             bg-white text-gray-900 
+             dark:bg-gray-800 dark:text-gray-100
+             placeholder-gray-400 dark:placeholder-gray-500
+             focus:ring-1 focus:ring-ring focus:border-ring pr-10"
                     placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -175,4 +183,5 @@ const Login = () => {
 };
 
 export default Login;
+
 
