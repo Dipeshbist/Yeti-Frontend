@@ -24,6 +24,18 @@ import {
 } from "lucide-react";
 import { api } from "@/services/api.ts";
 import { toast } from "@/hooks/use-toast";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Brush,
+} from "recharts";
+
 
 interface DeviceInfo {
   id: string;
@@ -121,6 +133,11 @@ const DeviceDetail = () => {
   const logsDedupRef = useRef<Set<string>>(new Set());
 
   const [role, setRole] = useState<"admin" | "user">("user");
+const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
+const [telemetryHistory, setTelemetryHistory] = useState<Record<string, any[]>>(
+  {}
+);
+const [isChartLoading, setIsChartLoading] = useState(false);
 
 
   // Helper: push a log line if not duplicate
@@ -582,7 +599,6 @@ const fetchLiveData = async (role?: "admin" | "user") => {
 
   const fetchHistoricalData = async (role?: "admin" | "user") => {
     if (!deviceId) return;
-
     try {
       console.log("Fetching historical data for:", deviceId);
       const result = await api.getDeviceHistory(deviceId, undefined, 24, role);
@@ -643,6 +659,29 @@ const fetchLiveData = async (role?: "admin" | "user") => {
     }
   };
 
+  const fetchTelemetryHistory = async (keys: string[], hours = 24) => {
+    if (!deviceId || keys.length === 0) return;
+    try {
+      setIsChartLoading(true);
+      const res = await api.getDeviceHistory(deviceId, keys.join(","), hours);
+      if (res?.data) {
+        const parsed: Record<string, any[]> = {};
+        Object.entries(res.data).forEach(([key, arr]: any) => {
+          parsed[key] = arr.map((p: any) => ({
+            time: new Date(p.timestamp),
+            value: p.value,
+          }));
+        });
+        setTelemetryHistory(parsed);
+      }
+    } catch (e) {
+      console.error("Error fetching telemetry history:", e);
+    } finally {
+      setIsChartLoading(false);
+    }
+  };
+
+  
   const formatRelativeTime = (timestamp: number): string => {
     const now = Date.now();
     const diffMs = now - timestamp;
@@ -901,6 +940,48 @@ const fetchLiveData = async (role?: "admin" | "user") => {
       </AppLayout>
     );
   }
+  
+  const TelemetryChart = ({
+    data,
+    name,
+    unit,
+  }: {
+    data: any[];
+    name: string;
+    unit: string;
+  }) => (
+    <div className="bg-card rounded-lg p-4 mb-4 border border-muted shadow-sm">
+      <h3 className="text-base font-semibold mb-2 text-primary">
+        {name}{" "}
+        {unit && (
+          <span className="text-muted-foreground text-sm">({unit})</span>
+        )}
+      </h3>
+      <ResponsiveContainer width="100%" height={250}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <XAxis
+            dataKey="time"
+            tickFormatter={(v) => new Date(v).toLocaleTimeString()}
+          />
+          <YAxis />
+          <Tooltip
+            labelFormatter={(v) => new Date(v).toLocaleString()}
+            formatter={(v) => [v, name]}
+          />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke="#00BFFF"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Brush dataKey="time" height={25} stroke="#00BFFF" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
 
   return (
     <AppLayout>
@@ -1012,25 +1093,21 @@ const fetchLiveData = async (role?: "admin" | "user") => {
               {telemetryWidgets.map((widget, index) => (
                 <Card
                   key={`${widget.key}-${index}`}
-                  className={`telemetry-card hover:bg-muted/50 transition-all ${
+                  className={`telemetry-card hover:bg-muted/50 transition-all cursor-pointer ${
                     realtimeData && Date.now() - realtimeData.timestamp > 60000
                       ? "border-yellow-500/50"
                       : ""
                   }`}
+                  onClick={() => {
+                    navigate(`/devices/${deviceId}/telemetry/${widget.key}`, {
+                      state: {
+                        keys: widget.value.map((v: any) => v.key),
+                        name: widget.displayName,
+                      },
+                    });
+                  }}
                 >
                   <CardContent className="p-3 sm:p-4">
-                    {/* Add stale data warning */}
-                    {realtimeData &&
-                      Date.now() - realtimeData.timestamp > 60000 && (
-                        <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-700">
-                          ⚠️ Data may be stale (
-                          {Math.round(
-                            (Date.now() - realtimeData.timestamp) / 1000
-                          )}
-                          s old)
-                        </div>
-                      )}
-
                     <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between">
                         <h3
@@ -1092,6 +1169,41 @@ const fetchLiveData = async (role?: "admin" | "user") => {
                       </div>
                     </div>
                   </CardContent>
+                  {/* <div className="flex gap-2 mb-2">
+                    {[6, 12, 24, 48].map((h) => (
+                      <Button
+                        key={h}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const keys = widget.value.map((v: any) => v.key);
+                          fetchTelemetryHistory(keys, h);
+                        }}
+                      >
+                        {h}h
+                      </Button>
+                    ))}
+                  </div> */}
+
+                  {/* 🟦 Chart Section — appears when the card is clicked */}
+                  {/* {selectedSystem === widget.key && (
+                    <div className="p-4 border-t border-muted bg-muted/20">
+                      {isChartLoading ? (
+                        <p className="text-sm text-muted-foreground">
+                          Loading chart...
+                        </p>
+                      ) : (
+                        Object.entries(telemetryHistory).map(([key, data]) => (
+                          <TelemetryChart
+                            key={key}
+                            name={formatParameterName(key)}
+                            data={data}
+                            unit={extractUnit(key)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  )} */}
                 </Card>
               ))}
             </div>
