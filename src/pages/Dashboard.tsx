@@ -445,9 +445,7 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
                 <Cpu className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Devices Found</h3>
                 <p className="text-muted-foreground mb-4">
-                  No devices are currently available for your account. Make sure
-                  your devices are properly configured and assigned in
-                  ThingsBoard.
+                  No devices are currently available for your account.
                 </p>
               </CardContent>
             </Card>
