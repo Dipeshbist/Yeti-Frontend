@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Cpu, Zap, Users } from "lucide-react";
+import { Cpu, Zap, FileChartColumn } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,20 +23,30 @@ export function AppSidebar() {
   const isActive = (path: string) =>
     currentPath === path || currentPath.startsWith(path + "/");
 
- const baseItems = [{ title: "Devices", url: "/devices", icon: Cpu }];
- const adminItems = [{ title: "Admin Dashboard", url: "/admin", icon: Zap }];
+  // Items
+  const devicesItem = { title: "Devices", url: "/devices", icon: Cpu };
+  const reportsItem = {
+    title: "Reports",
+    url: "/reports",
+    icon: FileChartColumn,
+  };
+  const adminItem = { title: "Admin Dashboard", url: "/admin", icon: Zap };
 
- // ✅ Admin sees only Admin Dashboard; users see Devices
- const navigationItems = isAdmin() ? adminItems : baseItems;
+  // ✅ Normal users: Devices + Reports (Reports appears below Devices)
+  // ✅ Admins: Admin Dashboard + Reports (you can also include Devices if you want)
+  const navigationItems = isAdmin()
+    ? [  ] // admin menu
+    : [devicesItem, reportsItem]; // user menu
+
   return (
     <Sidebar
       className={`${
         collapsed ? "w-14" : "w-64"
-      } border-r border-sidebar-border bg-sidebar transition-all duration-300`}
+      } h-screen border-r border-border bg-sidebar transition-all duration-300 !mt-0 !pt-0`}
       collapsible="icon"
     >
       <SidebarContent className="bg-sidebar">
-        {/* ✅ Header / Brand section */}
+        {/* Header / Brand */}
         <div
           onClick={() => navigate(isAdmin() ? "/admin" : "/dashboard")}
           className="flex items-center gap-3 p-6 border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
@@ -52,22 +62,19 @@ export function AppSidebar() {
             />
           </div>
           {!collapsed && (
-            <div>
-              <h1 className="font-bold text-lg text-sidebar-foreground">
-                Insight
-              </h1>
-              <p className="text-xs text-sidebar-foreground/60">
+            <div className="flex flex-col justify-center">
+              <p className="text-sm font-medium text-sidebar-foreground">
                 Industrial IoT
               </p>
             </div>
           )}
         </div>
 
-        {/* ✅ Navigation Menu */}
+        {/* Navigation */}
         <SidebarGroup className="px-4 py-6">
-          <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-medium mb-4">
-            {!collapsed && "NAVIGATION"}
-          </SidebarGroupLabel>
+          {/* <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-medium mb-4">
+            {!collapsed && " "}
+          </SidebarGroupLabel> */}
 
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
@@ -84,7 +91,12 @@ export function AppSidebar() {
                         } hover:bg-sidebar-accent transition-colors`
                       }
                     >
-                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      <item.icon
+                        className={`w-5 h-5 flex-shrink-0 transition-transform duration-300 ${
+                          collapsed ? "-translate-x-1.5" : "translate-x-0"
+                        }`}
+                      />
+
                       {!collapsed && (
                         <span className="font-medium">{item.title}</span>
                       )}

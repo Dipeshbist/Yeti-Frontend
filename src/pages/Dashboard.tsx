@@ -28,13 +28,13 @@ interface CustomerDevice {
   name: string;
   type: string;
   status: "online" | "offline" | "warning";
-  lastSeen: string;
+  // lastSeen: string;
   location: string;
-  telemetry: {
-    temperature?: number;
-    humidity?: number;
-    voltage?: number;
-  };
+  // telemetry: {
+  //   temperature?: number;
+  //   humidity?: number;
+  //   voltage?: number;
+  // };
 }
 
 interface CustomerDashboard {
@@ -147,136 +147,6 @@ const handleLogout = () => {
       setIsLoading(false);
     }
   };
-
-//   const fetchUserData = async () => {
-//     try {
-//       console.log("Fetching user's dashboards and devices...");
-
-//       // All API calls now use JWT token automatically
-//       const [dashboardsResult, devicesResult] = await Promise.all([
-//         api.getMyDashboards(),
-//         api.getMyDevices(),
-//       ]);
-
-//       console.log("Dashboards result:", dashboardsResult);
-//       console.log("Devices result:", devicesResult);
-
-//       // Transform dashboards data
-//       if (dashboardsResult.data) {
-//         const transformedDashboards: CustomerDashboard[] =
-//           dashboardsResult.data.map((dash: any) => ({
-//             id: dash.id.id,
-//             name: dash.title,
-//             description: "ThingsBoard Dashboard",
-//             deviceCount: devicesResult.totalElements || 0,
-//             lastUpdated: "Just now",
-//           }));
-//         setDashboards(transformedDashboards);
-//       }
-
-//       // Transform and fetch telemetry for devices
-//       if (devicesResult.data) {
-//         const devicesWithTelemetry: CustomerDevice[] = [];
-
-//         console.log(`Processing ${devicesResult.data.length} devices...`);
-
-//         for (const deviceInfo of devicesResult.data) {
-//           try {
-//             console.log(
-//               `Fetching telemetry for device: ${deviceInfo.name} (${deviceInfo.id.id})`
-//             );
-
-//  const telemetryResult = await api.getDeviceLiveData(
-//    deviceInfo.id.id,
-//    undefined,
-//    30
-//  );
-//             console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
-
-//             const transformedDevice: CustomerDevice = {
-//               id: deviceInfo.id.id,
-//               name: deviceInfo.name,
-//               type: deviceInfo.type,
-//               status: deviceInfo.active ? "online" : "offline",
-//               lastSeen: deviceInfo.createdTime
-//                 ? formatRelativeTime(deviceInfo.createdTime)
-//                 : "Unknown",
-//               location: deviceInfo.customerTitle || "No location set",
-//               telemetry: {
-//                 temperature: telemetryResult.telemetry?.temperature?.value,
-//                 humidity: telemetryResult.telemetry?.humidity?.value,
-//                 voltage:
-//                   telemetryResult.telemetry?.voltage?.value ||
-//                   telemetryResult.telemetry?.['"Voltage V1N"']?.value,
-//               },
-//             };
-
-//             // Set warning status if device has no recent telemetry
-//             // if (
-//             //   !telemetryResult.telemetry ||
-//             //   Object.keys(telemetryResult.telemetry).length === 0
-//             // ) {
-//             //   transformedDevice.status = "warning";
-//             // }
-
-//             devicesWithTelemetry.push(transformedDevice);
-//             console.log("Transformed device:", transformedDevice);
-//           } catch (telemetryError) {
-//             console.error(
-//               `Telemetry fetch failed for ${deviceInfo.name}:`,
-//               telemetryError
-//             );
-
-//             // Add device without telemetry data
-//             const transformedDevice: CustomerDevice = {
-//               id: deviceInfo.id.id,
-//               name: deviceInfo.name,
-//               type: deviceInfo.type,
-//               status: "warning",
-//               lastSeen: "No telemetry data",
-//               location: deviceInfo.customerTitle || "No location set",
-//               telemetry: {},
-//             };
-//             devicesWithTelemetry.push(transformedDevice);
-//           }
-//         }
-
-//         setDevices(devicesWithTelemetry);
-//         console.log("Final devices state:", devicesWithTelemetry);
-
-// if (devicesWithTelemetry.length === 0) {
-//   toast({
-//     title: "No Devices Found",
-//     description: "No devices found for your account.",
-//     variant: "destructive",
-//     duration: 2000,
-//   });
-// }
-//       }
-//     } catch (error) {
-//       console.error("User data fetch error:", error);
-
-//       // Check if it's an authentication error
-//       if (
-//         error instanceof Error &&
-//         error.message.includes("Authentication expired")
-//       ) {
-//         handleLogout();
-//         return;
-//       }
-
-//       toast({
-//         title: "API Error",
-//         description:
-//           error instanceof Error
-//             ? error.message
-//             : "Failed to fetch data from ThingsBoard",
-//         variant: "destructive",
-//         duration: 2000,
-//       });
-//     }
-//   };
-
   
 const fetchUserData = async () => {
   try {
@@ -314,36 +184,33 @@ const fetchUserData = async () => {
 
       for (const deviceInfo of devicesResult.data) {
         try {
-          const live = await api.getDeviceLiveData(
-            deviceInfo.id.id,
-            undefined,
-            30
-          );
-          console.log(`Live for ${deviceInfo.name}:`, live);
+const live = await api.getDeviceLiveData(deviceInfo.id.id, undefined, 30);
+console.log(`Live for ${deviceInfo.name}:`, live);
 
-          const liveData: Record<
-            string,
-            { value: any; timestamp: number; isLive?: boolean }
-          > = live?.data || {};
+// ✅ Detect online devices (support new grouped format)
+let isOnline = false;
 
-          // derive online/offline from live response
-          const isOnline = !!(live?.isLive || (live?.dataCount ?? 0) > 0);
-
-          // newest telemetry timestamp -> last seen
-          const lastTs = Object.values(liveData).reduce(
-            (max, d) => (d?.timestamp && d.timestamp > max ? d.timestamp : max),
-            0
-          );
-          const lastSeenText =
-            lastTs > 0 ? formatRelativeTime(lastTs) : "No telemetry";
-
-          // helper to extract preview values by fuzzy key
+if (live?.groups && Object.keys(live.groups).length > 0) {
+  // Count total keys across all groups
+  const totalKeys = Object.values(live.groups).reduce<number>(
+    (sum, group) => sum + Object.keys(group).length,
+    0
+  );
+  isOnline = totalKeys > 0;
+} else if (live?.data && Object.keys(live.data).length > 0) {
+  // fallback for older format
+  isOnline = true;
+} else if (live?.isLive || (live?.dataCount ?? 0) > 0) {
+  // very old fallback
+  isOnline = true;
+}
           const pick = (...needles: string[]) => {
-            const key = Object.keys(liveData).find((k) =>
+            const data = live.groups || live.data || {};
+            const key = Object.keys(data).find((k) =>
               needles.every((n) => k.toLowerCase().includes(n))
             );
             if (!key) return undefined;
-            const v = liveData[key]?.value;
+            const v = data[key]?.value;
             return typeof v === "number" ? v : Number(v);
           };
 
@@ -352,15 +219,22 @@ const fetchUserData = async () => {
             name: deviceInfo.name,
             type: deviceInfo.type,
             status: isOnline ? "online" : "offline",
-            lastSeen: lastSeenText,
-            location: deviceInfo.customerTitle || "No location set",
-            telemetry: {
-              temperature: pick("temp"),
-              humidity: pick("humid"),
-              voltage: pick("voltage", "v1n") ?? pick("voltage"),
-            },
+            // lastSeen: lastSeenText,
+            location: "Loading",
+            // telemetry: {
+            //   temperature: pick("temp"),
+            //   humidity: pick("humid"),
+            //   voltage: pick("voltage", "v1n") ?? pick("voltage"),
+            // },
           };
-
+          // ✅ Fetch user-entered location from your backend
+          try {
+            const locRes = await api.getDeviceLocation(deviceInfo.id.id);
+            transformedDevice.location = locRes?.location || "Not set";
+          } catch (err) {
+            console.warn(`Failed to fetch location for ${deviceInfo.name}`);
+            transformedDevice.location = "Not set";
+          }
           devicesWithTelemetry.push(transformedDevice);
         } catch (telemetryError) {
           console.error(
@@ -373,9 +247,9 @@ const fetchUserData = async () => {
             name: deviceInfo.name,
             type: deviceInfo.type,
             status: "offline",
-            lastSeen: "No telemetry",
+            // lastSeen: "No telemetry",
             location: deviceInfo.customerTitle || "No location set",
-            telemetry: {},
+            // telemetry: {},
           });
         }
       }
@@ -479,11 +353,13 @@ const fetchUserData = async () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-foreground">
-              Welcome, {user?.firstName || user?.email}!
+              Welcome, <br />
+              {user?.firstName ? user.firstName.toUpperCase() : "USER"}
             </h1>
-            <div className="flex items-center gap-4 mt-2">
+
+            {/* <div className="flex items-center gap-4 mt-2">
               <Badge variant="default">Authenticated</Badge>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -581,7 +457,45 @@ const fetchUserData = async () => {
                 <Card
                   key={device.id}
                   className="telemetry-card cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/devices/${device.id}`)}
+                  onClick={async () => {
+                    try {
+                      const res = await api.getDeviceLocation(device.id);
+
+                      if (res.location) {
+                        // ✅ Location already exists → just open the device
+                        navigate(`/devices/${device.id}`);
+                      } else {
+                        // ❌ No location yet → ask user to enter one
+                        const locationName = prompt(
+                          "Enter the location name for this device:"
+                        );
+                        if (locationName && locationName.trim()) {
+                          await api.saveDeviceLocation(
+                            device.id,
+                            locationName.trim()
+                          );
+                          toast({
+                            title: "Location Saved",
+                            description: `Location set as "${locationName}" for ${device.name}.`,
+                          });
+                          // Refresh the dashboard to show the new location
+                          await initializeDashboard();
+                        } else {
+                          toast({
+                            title: "Location Required",
+                            description: "Please enter a valid location name.",
+                            variant: "destructive",
+                          });
+                        }
+                      }
+                    } catch (err) {
+                      toast({
+                        title: "Error",
+                        description: "Unable to check or save location.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -589,7 +503,7 @@ const fetchUserData = async () => {
                         <CardTitle className="text-base">
                           {device.name}
                         </CardTitle>
-                        <CardDescription>{device.type}</CardDescription>
+                        {/* <CardDescription>{device.type}</CardDescription> */}
                       </div>
 
                       {/* Status badge (top right) */}
@@ -617,23 +531,21 @@ const fetchUserData = async () => {
 
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
+                      {/* <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Location:</span>
                         <span className="text-foreground">
                           {device.location}
                         </span>
-                      </div>
+                      </div> */}
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Last Seen:
-                        </span>
+                        <span className="text-muted-foreground">Location:</span>
                         <span className="text-foreground">
-                          {device.lastSeen}
+                          {device.location || "Not set"}
                         </span>
                       </div>
 
                       {/* Display available telemetry */}
-                      <div className="flex flex-wrap gap-2">
+                      {/* <div className="flex flex-wrap gap-2">
                         {device.telemetry.temperature !== undefined && (
                           <div className="flex items-center gap-1 text-sm">
                             <Thermometer className="w-3 h-3 text-accent" />
@@ -660,7 +572,7 @@ const fetchUserData = async () => {
                             </span>
                           </div>
                         )}
-                      </div>
+                      </div> */}
                     </div>
                   </CardContent>
                 </Card>

@@ -33,7 +33,6 @@ interface Device {
   name: string;
   type: string;
   status: "online" | "offline";
-  lastSeen: string;
   location: string;
   telemetry: {
     temperature?: number;
@@ -47,6 +46,7 @@ const DeviceList = () => {
   const [filteredDevices, setFilteredDevices] = useState<Device[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showSearch, setShowSearch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -114,130 +114,6 @@ if (!token || !user) {
       setIsLoading(false);
     }
   };
-
-  // const fetchAllDevices = async () => {
-  //   try {
-  //     console.log("Fetching all devices with JWT authentication...");
-
-  //     // Fetch all customer devices using JWT-authenticated endpoint
-  //     const devicesResult = await api.getMyDevices();
-  //     console.log("All devices result:", devicesResult);
-
-  //     if (devicesResult.error) {
-  //       throw new Error(devicesResult.error);
-  //     }
-
-  //     if (!devicesResult.data || devicesResult.data.length === 0) {
-  //       setDevices([]);
-  //       toast({
-  //         title: "No Devices Found",
-  //         description: "No devices found for your account",
-  //         variant: "destructive",
-  //         duration: 2000,
-  //       });
-  //       return;
-  //     }
-
-  //     // Process devices and fetch their telemetry
-  //     const devicesWithTelemetry: Device[] = [];
-
-  //     console.log(`Processing ${devicesResult.data.length} devices...`);
-
-  //     // Process devices in batches to avoid overwhelming the API
-  //     const batchSize = 5;
-  //     for (let i = 0; i < devicesResult.data.length; i += batchSize) {
-  //       const batch = devicesResult.data.slice(i, i + batchSize);
-
-  //       const batchPromises = batch.map(async (deviceInfo) => {
-  //         try {
-  //           console.log(
-  //             `Fetching telemetry for: ${deviceInfo.name} (${deviceInfo.id.id})`
-  //           );
-
-  //           const telemetryResult = await api.getDeviceRealtime(
-  //             deviceInfo.id.id
-  //           );
-  //           console.log(`Telemetry for ${deviceInfo.name}:`, telemetryResult);
-
-  //           const transformedDevice: Device = {
-  //             id: deviceInfo.id.id,
-  //             name: deviceInfo.name,
-  //             type: deviceInfo.type,
-  //             status: deviceInfo.active ? "online" : "offline",
-  //             lastSeen: deviceInfo.createdTime
-  //               ? formatRelativeTime(deviceInfo.createdTime)
-  //               : "Unknown",
-  //             location: deviceInfo.customerTitle || "No location set",
-  //             telemetry: extractTelemetryValues(
-  //               telemetryResult.telemetry || {}
-  //             ),
-  //           };
-
-  //           // Set warning status if device has no recent telemetry
-  //           if (
-  //             !telemetryResult.telemetry ||
-  //             Object.keys(telemetryResult.telemetry).length === 0
-  //           ) {
-  //             transformedDevice.status = "warning";
-  //             transformedDevice.lastSeen = "No telemetry data";
-  //           }
-
-  //           return transformedDevice;
-  //         } catch (telemetryError) {
-  //           console.error(
-  //             `Telemetry fetch failed for ${deviceInfo.name}:`,
-  //             telemetryError
-  //           );
-
-  //           return {
-  //             id: deviceInfo.id.id,
-  //             name: deviceInfo.name,
-  //             type: deviceInfo.type,
-  //             status: "warning" as const,
-  //             lastSeen: "No telemetry",
-  //             location: deviceInfo.customerTitle || "No location set",
-  //             telemetry: {},
-  //           };
-  //         }
-  //       });
-
-  //       const batchResults = await Promise.all(batchPromises);
-  //       devicesWithTelemetry.push(...batchResults);
-  //     }
-
-  //     setDevices(devicesWithTelemetry);
-  //     console.log("Final devices list:", devicesWithTelemetry);
-
-  //     toast({
-  //       title: "Devices Loaded",
-  //       description: `Successfully loaded ${devicesWithTelemetry.length} devices from ThingsBoard`,
-  //       duration: 2000,
-  //     });
-  //   } catch (error) {
-  //     console.error("Fetch all devices error:", error);
-
-  //     // Handle authentication errors
-  //     if (
-  //       error instanceof Error &&
-  //       error.message.includes("Authentication expired")
-  //     ) {
-  //       localStorage.removeItem("token");
-  //       localStorage.removeItem("user");
-  //       localStorage.removeItem("customerId");
-  //       navigate("/");
-  //       return;
-  //     }
-
-  //     toast({
-  //       title: "API Error",
-  //       description:
-  //         error instanceof Error ? error.message : "Failed to fetch devices",
-  //       variant: "destructive",
-  //       duration: 2000,
-  //     });
-  //   }
-  // };
-
 
   const fetchAllDevices = async () => {
     try {
@@ -309,12 +185,22 @@ if (!token || !user) {
                 name: deviceInfo.name,
                 type: deviceInfo.type,
                 status: isOnline ? "online" : "offline",
-                lastSeen,
-                location: deviceInfo.customerTitle || "No location set",
+                location: "Loading...",
                 // Reuse your extractor: it understands { value, timestamp } objects
                 telemetry: extractTelemetryValues(liveData),
               };
-
+              // 🔹 Now fetch location from your DB and override it
+              try {
+                const locationRes = await api.getDeviceLocation(
+                  deviceInfo.id.id
+                );
+                transformedDevice.location = locationRes?.location || "Not set";
+              } catch (err) {
+                console.warn(
+                  `Failed to fetch saved location for ${deviceInfo.name}`
+                );
+                transformedDevice.location = "Not set";
+              }
               return transformedDevice;
             } catch (telemetryError) {
               console.error(
@@ -328,7 +214,7 @@ if (!token || !user) {
                 name: deviceInfo.name,
                 type: deviceInfo.type,
                 status: "offline",
-                lastSeen: "No telemetry",
+                // lastSeen: "No telemetry",
                 location: deviceInfo.customerTitle || "No location set",
                 telemetry: {},
               };
@@ -479,51 +365,63 @@ if (!token || !user) {
         </div> */}
 
         {/* Filters */}
-        <div className="flex flex-col gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search devices by name, type, or location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-1 sm:gap-2">
+        {/* Compact Filters + Search Icon */}
+        <div className="flex items-center justify-between w-full px-2 mb-4">
+          {/* Left side filters */}
+          <div className="flex items-center gap-2">
+            {/* All */}
             <Button
               variant={statusFilter === "all" ? "default" : "outline"}
               onClick={() => setStatusFilter("all")}
-              className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 flex-shrink-0"
+              className="text-xs px-3 py-1.5 h-7 flex items-center gap-1"
             >
-              <Filter className="w-3 h-3 mr-1" />
+              <Filter className="w-3 h-3" />
               All ({devices.length})
             </Button>
+
+            {/* Online */}
             <Button
               variant={statusFilter === "online" ? "default" : "outline"}
               onClick={() => setStatusFilter("online")}
-              className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 flex-shrink-0"
+              className="text-xs px-3 py-1.5 h-7 flex items-center gap-1"
             >
-              <Activity className="w-3 h-3 mr-1" />
+              <Activity className="w-3 h-3" />
               Online ({devices.filter((d) => d.status === "online").length})
             </Button>
-            {/* <Button
-              variant={statusFilter === "warning" ? "default" : "outline"}
-              onClick={() => setStatusFilter("warning")}
-              className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 flex-shrink-0"
-            >
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              Warning ({devices.filter((d) => d.status === "warning").length})
-            </Button> */}
+
+            {/* Offline */}
             <Button
               variant={statusFilter === "offline" ? "default" : "outline"}
               onClick={() => setStatusFilter("offline")}
-              className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 flex-shrink-0"
+              className="text-xs px-3 py-1.5 h-7 flex items-center gap-1"
             >
-              <Cpu className="w-3 h-3 mr-1" />
+              <Cpu className="w-3 h-3" />
               Offline ({devices.filter((d) => d.status === "offline").length})
             </Button>
           </div>
+
+          {/* Right side search icon */}
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setShowSearch((prev) => !prev)} // toggle a small search overlay if you want later
+              className="p-2 rounded-md hover:bg-muted/70 transition"
+            >
+              <Search className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+            </button>
+          </div>
+
+          {/* Small floating search bar */}
+          {showSearch && (
+            <div className="absolute right-4 top-50 bg-card border border-border rounded-md p-2 shadow-lg w-56 z-50">
+              <Input
+                placeholder="Search devices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-sm"
+                autoFocus
+              />
+            </div>
+          )}
         </div>
 
         {/* Device Grid */}
@@ -547,11 +445,33 @@ if (!token || !user) {
               <Card
                 key={device.id}
                 className="telemetry-card cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() =>
-                  navigate(`/devices/${device.id}`, {
-                    state: { from: "devices" },
-                  })
-                }
+                // onClick={() =>
+                //   navigate(`/devices/${device.id}`, {
+                //     state: { from: "devices" },
+                //   })
+                // }
+
+                onClick={async () => {
+                  const res = await api.getDeviceLocation(device.id);
+                  if (res.location) {
+                    navigate(`/devices/${device.id}`);
+                  } else {
+                    const locationName = prompt(
+                      "Enter the location name for this device:"
+                    );
+                    if (locationName && locationName.trim()) {
+                      await api.saveDeviceLocation(
+                        device.id,
+                        locationName.trim()
+                      );
+                      toast({
+                        title: "Location Saved",
+                        description: `Location set as "${locationName}" for ${device.name}.`,
+                      });
+                      initializeDeviceList();
+                    }
+                  }
+                }}
               >
                 {" "}
                 <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4">
@@ -560,9 +480,9 @@ if (!token || !user) {
                       <CardTitle className="text-sm sm:text-base leading-tight truncate">
                         {device.name}
                       </CardTitle>
-                      <CardDescription className="mt-1 text-xs">
+                      {/* <CardDescription className="mt-1 text-xs">
                         {device.type}
-                      </CardDescription>
+                      </CardDescription> */}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {getStatusIcon(device.status)}
@@ -576,8 +496,15 @@ if (!token || !user) {
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4 pt-0">
                   <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Location:</span>
+                      <span className="text-foreground">
+                        {device.location || "Not set"}
+                      </span>
+                    </div>
                     {/* Location & Last Seen */}
-                    <div className="space-y-2">
+                    {/* <div className="space-y-2">
+
                       <div className="flex items-center justify-between text-xs sm:text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
@@ -587,19 +514,18 @@ if (!token || !user) {
                           {device.location}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-xs sm:text-sm">
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Last Seen:
-                        </span>
-                        <span className="text-muted-foreground">
-                          {device.lastSeen}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Location:</span>
+                        <span className="text-foreground">
+                          {localStorage.getItem(
+                            `device_location_${device.id}`
+                          ) || "Not set"}
                         </span>
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Telemetry Data */}
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+                    {/* <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
                       {device.telemetry.temperature !== undefined && (
                         <div className="flex items-center gap-2">
                           <Thermometer className="w-4 h-4 text-accent" />
@@ -641,7 +567,7 @@ if (!token || !user) {
                           </div>
                         </div>
                       )}
-                    </div>
+                    </div> */}
 
                     {/* Status Badge */}
                     {/* <div className="pt-2 flex justify-between items-center">

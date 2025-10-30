@@ -24,7 +24,7 @@ export function AppLayout({ children, onRefresh }: AppLayoutProps) {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col -mt-px">
           {/* Top Header */}
           {/* Top Header - Make responsive */}
           <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6">

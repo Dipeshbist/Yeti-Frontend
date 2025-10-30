@@ -23,6 +23,7 @@ interface UserProfile {
   lastName?: string;
   role?: "admin" | "user";
   customerId?: string | null;
+  profileImage?: string;
 }
 
 export const UserProfileDropdown = () => {
@@ -125,11 +126,61 @@ const handleLogout = () => {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-2">
             <div className="flex items-center gap-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {getInitials()}
-                </AvatarFallback>
+              <Avatar
+                className="h-8 w-8 cursor-pointer hover:opacity-80 transition"
+                onClick={() => document.getElementById("avatarUpload")?.click()}
+              >
+                {userProfile?.profileImage ? (
+                  <img
+                    src={userProfile.profileImage}
+                    alt="User Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {getInitials()}
+                  </AvatarFallback>
+                )}
+
+                <input
+                  type="file"
+                  id="avatarUpload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    try {
+                      // 1️⃣ Upload to server
+                      const result = await api.uploadAvatar(file);
+
+                      // 2️⃣ Immediately refetch updated user from backend
+                      const refreshed = await api.getProfile(
+                        isAdmin() ? "admin" : "user"
+                      );
+
+                      // 3️⃣ Update local state with fresh data (forces re-render)
+                      if (refreshed.success && refreshed.user) {
+                        setUserProfile(refreshed.user);
+                      }
+
+                      toast({
+                        title: "Profile Updated",
+                        description: "Your avatar was uploaded successfully!",
+                      });
+                    } catch (err) {
+                      console.error("Avatar upload failed:", err);
+                      toast({
+                        title: "Upload Failed",
+                        description: "Something went wrong while uploading.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                />
               </Avatar>
+
               <div className="flex flex-col">
                 <p className="text-sm font-medium">{getDisplayName()}</p>
                 <p className="text-xs text-muted-foreground">

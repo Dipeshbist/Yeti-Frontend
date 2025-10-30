@@ -296,7 +296,7 @@ export const api = {
   getMyDashboards: (page = 0) => apiCall(`/my-dashboards?page=${page}`),
 
   getDeviceInfo: (deviceId: string, role?: "admin" | "user") =>
-    apiCall(`/devices/info/${deviceId}`, {}, role),
+    apiCall(`/devices/${deviceId}/info`, {}, role),
 
   getDeviceRealtime: (deviceId: string, keys?: string) => {
     const url = keys
@@ -309,10 +309,21 @@ export const api = {
     deviceId: string,
     keys?: string,
     hours = 24,
-    role?: "admin" | "user"
+    role?: "admin" | "user",
+    dateRange?: { startDate?: string; endDate?: string }
   ) => {
-    const params = new URLSearchParams({ hours: hours.toString() });
+    const params = new URLSearchParams();
+
+    // If date range provided, prioritize that
+    if (dateRange?.startDate && dateRange?.endDate) {
+      params.append("startDate", dateRange.startDate);
+      params.append("endDate", dateRange.endDate);
+    } else {
+      params.append("hours", hours.toString());
+    }
+
     if (keys) params.append("keys", keys);
+
     return apiCall(`/devices/${deviceId}/history?${params}`, {}, role);
   },
 
@@ -363,5 +374,44 @@ export const api = {
     }
 
     return await response.json();
+  },
+
+  // ✅ Save device location (auto-fills via backend)
+  saveDeviceLocation: (deviceId: string, location: string) =>
+    apiCall(`/devices/${deviceId}/location`, {
+      method: "POST",
+      body: JSON.stringify({ location }),
+    }),
+
+  // ✅ Get existing location
+  getDeviceLocation: (deviceId: string) =>
+    apiCall(`/devices/${deviceId}/location`),
+
+  // ✅ Rename device
+  renameDevice: (deviceId: string, newName: string) =>
+    apiCall(`/devices/${deviceId}/rename`, {
+      method: "POST",
+      body: JSON.stringify({ newName }),
+    }),
+
+  uploadAvatar: async (file: File) => {
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("adminToken");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${BASE_URL}/auth/upload-avatar`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload image");
+    }
+
+    return response.json();
   },
 };

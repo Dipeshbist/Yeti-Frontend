@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Pencil } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +37,17 @@ import {
   ResponsiveContainer,
   Brush,
 } from "recharts";
+import GaugeCard from "@/components/GaugeCard";
+import MetricCard from "@/components/GaugeCard";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
 
 
 interface DeviceInfo {
@@ -112,6 +125,9 @@ const DeviceDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from as "admin" | "devices" | undefined;
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+
 
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [realtimeData, setRealtimeData] = useState<RealTimeData | null>(null);
@@ -336,81 +352,108 @@ useEffect(() => {
   //   }
   // };
 
-const fetchLiveData = async (role?: "admin" | "user") => {
-  if (!deviceId) return;
+// const fetchLiveData = async (role?: "admin" | "user") => {
+//   if (!deviceId) return;
 
-  try {
-    // use tighter 10-second window
-    const liveData = await api.getDeviceLiveData(
-      deviceId,
-      undefined,
-      10,
-      role
-    );
-    const keysData = liveData?.data || {};
-    const now = Date.now();
+//   try {
+//     // use tighter 10-second window
+//     const liveData = await api.getDeviceLiveData(
+//       deviceId,
+//       undefined,
+//       10,
+//       role
+//     );
+//     const keysData = liveData?.data || {};
+//     const now = Date.now();
 
-    // keep only telemetry marked as isLive=true
-    const filteredTelemetry: Record<string, any> = {};
-    Object.entries(keysData).forEach(([key, val]: any) => {
-      if (val?.isLive === true) filteredTelemetry[key] = val;
-    });
+//     // keep only telemetry marked as isLive=true
+//     const filteredTelemetry: Record<string, any> = {};
+//     Object.entries(keysData).forEach(([key, val]: any) => {
+//       if (val?.isLive === true) filteredTelemetry[key] = val;
+//     });
 
-    Object.entries(keysData).forEach(([key, val]: any) => {
-      if (val?.isLive === true && key.toLowerCase().includes("logs")) {
-        pushLog(val.timestamp ?? Date.now(), val.value);
-      }
-    });
+//     Object.entries(keysData).forEach(([key, val]: any) => {
+//       if (val?.isLive === true && key.toLowerCase().includes("logs")) {
+//         pushLog(val.timestamp ?? Date.now(), val.value);
+//       }
+//     });
 
-    const isOnline = Object.keys(filteredTelemetry).length > 0;
+//     const isOnline = Object.keys(filteredTelemetry).length > 0;
 
-    setDevice((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: isOnline ? "online" : "offline",
-            lastSeen: isOnline ? prev.lastSeen : "No recent telemetry",
-          }
-        : prev
-    );
+//     setDevice((prev) =>
+//       prev
+//         ? {
+//             ...prev,
+//             status: isOnline ? "online" : "offline",
+//             lastSeen: isOnline ? prev.lastSeen : "No recent telemetry",
+//           }
+//         : prev
+//     );
 
-    // ⛔ if offline, clear telemetry widgets
-    if (!isOnline) {
+//     // ⛔ if offline, clear telemetry widgets
+//     if (!isOnline) {
+//       setRealtimeData({
+//         deviceId,
+//         timestamp: now,
+//         telemetry: {},
+//         attributes: deviceAttributes?.attributes ?? {},
+//         keys: [],
+//       });
+//       setTelemetryWidgets([]);
+//       return;
+//     }
+
+//     // ✅ online: update real-time state
+//     setRealtimeData({
+//       deviceId: liveData.deviceId,
+//       timestamp: now,
+//       telemetry: filteredTelemetry,
+//       attributes:
+//         realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
+//       keys: Object.keys(filteredTelemetry),
+//     });
+
+//     setLastUpdated(new Date());
+//   } catch (error) {
+//     console.error("Live data fetch error:", error);
+
+//     // Handle expired token or missing session
+//     const user = JSON.parse(localStorage.getItem("user") || "null");
+//     if (!user) {
+//       localStorage.removeItem("token");
+//       localStorage.removeItem("user");
+//       localStorage.removeItem("customerId");
+//       navigate("/");
+//     }
+//   }
+// };
+
+  
+  const fetchLiveData = async (role?: "admin" | "user") => {
+    if (!deviceId) return;
+
+    try {
+      const live = await api.getDeviceLiveData(deviceId, undefined, 60, role);
+      const groups = live?.groups || {};
+
+      const isOnline = Object.keys(groups).length > 0;
+
+      setDevice((prev) =>
+        prev ? { ...prev, status: isOnline ? "online" : "offline" } : prev
+      );
+
+      // Store groups in realtimeData
       setRealtimeData({
         deviceId,
-        timestamp: now,
-        telemetry: {},
+        timestamp: live?.timestamp ?? Date.now(),
+        telemetry: groups,
         attributes: deviceAttributes?.attributes ?? {},
-        keys: [],
+        keys: live?.keys ?? [],
       });
-      setTelemetryWidgets([]);
-      return;
+    } catch (err) {
+      console.error("fetchLiveData error:", err);
     }
-
-    // ✅ online: update real-time state
-    setRealtimeData({
-      deviceId: liveData.deviceId,
-      timestamp: now,
-      telemetry: filteredTelemetry,
-      attributes:
-        realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
-      keys: Object.keys(filteredTelemetry),
-    });
-
-    setLastUpdated(new Date());
-  } catch (error) {
-    console.error("Live data fetch error:", error);
-
-    // Handle expired token or missing session
-    const user = JSON.parse(localStorage.getItem("user") || "null");
-    if (!user) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("customerId");
-      navigate("/");
-    }
-  }
-};
+  };
 
 
 
@@ -1013,9 +1056,26 @@ const fetchLiveData = async (role?: "admin" | "user") => {
 
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h1 className="text-lg sm:text-xl font-bold text-foreground">
+                {/* <h1 className="text-lg sm:text-xl font-bold text-foreground">
                   {device.name}
-                </h1>
+                </h1> */}
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground">
+                    {device.name}
+                  </h1>
+
+                  <button
+                    onClick={() => {
+                      setNewName(device.name);
+                      setIsRenameOpen(true);
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Rename Device"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <div
                     className={`status-indicator ${getStatusColor(
@@ -1032,9 +1092,9 @@ const fetchLiveData = async (role?: "admin" | "user") => {
                   </Badge>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
+              {/* <p className="text-sm text-muted-foreground">
                 {device.type} • {device.location}
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -1057,156 +1117,49 @@ const fetchLiveData = async (role?: "admin" | "user") => {
 
         {/* Dynamic Telemetry Widgets */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-semibold text-foreground flex flex-col sm:flex-row sm:items-center gap-2">
-              Live Telemetry Data ({telemetryWidgets.length} sensor systems)
-              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
-                <div
-                  className={`w-2 h-2 rounded-full animate-pulse ${
-                    realtimeData && Date.now() - realtimeData.timestamp < 30000
-                      ? "bg-green-500"
-                      : realtimeData &&
-                        Date.now() - realtimeData.timestamp < 60000
-                      ? "bg-yellow-500"
-                      : "bg-red-500"
-                  }`}
-                ></div>
-                Auto-updating every 5s
-                {realtimeData && (
-                  <span className="ml-2 text-xs">
-                    (Data:{" "}
-                    {Math.round((Date.now() - realtimeData.timestamp) / 1000)}s
-                    old)
-                  </span>
-                )}
-              </div>
-            </h2>
-            {lastUpdated && (
-              <p className="text-xs text-muted-foreground">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </p>
-            )}
-          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"></div>
 
-          {device.status === "online" && telemetryWidgets.length > 0 ? (
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {telemetryWidgets.map((widget, index) => (
-                <Card
-                  key={`${widget.key}-${index}`}
-                  className={`telemetry-card hover:bg-muted/50 transition-all cursor-pointer ${
-                    realtimeData && Date.now() - realtimeData.timestamp > 60000
-                      ? "border-yellow-500/50"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    navigate(`/devices/${deviceId}/telemetry/${widget.key}`, {
-                      state: {
-                        keys: widget.value.map((v: any) => v.key),
-                        name: widget.displayName,
-                      },
-                    });
-                  }}
-                >
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3
-                          className={`text-base sm:text-lg font-semibold ${widget.color}`}
-                        >
-                          {widget.displayName}
-                        </h3>
-                        <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${widget.color.replace(
-                            "text-",
-                            "bg-"
-                          )}/20 flex items-center justify-center`}
-                        >
-                          <Cpu
-                            className={`w-4 h-4 sm:w-5 sm:h-5 ${widget.color}`}
-                          />
-                        </div>
-                      </div>
+          {/* {device.status === "online" && telemetryWidgets.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+  {telemetryWidgets.flatMap((widget) =>
+    widget.value.map((param: any, paramIndex: number) => (
+      <Card
+        key={`${widget.key}-${paramIndex}`}
+        className="rounded-lg bg-card border border-border shadow-sm hover:shadow-md transition-transform transform hover:scale-[1.02] cursor-pointer h-[130px] flex items-center justify-center"
+        onClick={() =>
+          navigate(`/devices/${deviceId}/telemetry/${param.key}`, {
+            state: { key: param.key },
+          })
+        }
+      >
+        <CardContent className="p-2 w-full h-full flex flex-col items-center justify-center text-center">
+          <MetricCard
+            title={formatParameterName(param.key)}
+            value={Number(param.data.value) || 0}
+            unit={extractUnit(param.key)}
+            icon={
+              param.key.toLowerCase().includes("temp")
+                ? "Thermometer"
+                : param.key.toLowerCase().includes("power")
+                ? "Zap"
+                : param.key.toLowerCase().includes("humidity")
+                ? "Droplets"
+                : "Cpu"
+            }
+            color={
+              param.key.toLowerCase().includes("temp")
+                ? "#ff5c5c"
+                : param.key.toLowerCase().includes("humidity")
+                ? "#00BFFF"
+                : "#00FA9A"
+            }
+          />
+        </CardContent>
+      </Card>
+    ))
+  )}
+</div>
 
-                      <div className="space-y-2">
-                        {Array.isArray(widget.value) &&
-                          widget.value.map((param, paramIndex) => (
-                            <div
-                              key={paramIndex}
-                              className="flex items-center justify-between py-2 border-b border-muted/50 last:border-b-0"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Settings
-                                  className={`w-4 h-4 ${widget.color}`}
-                                />
-                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                                  {formatParameterName(param.key)}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p
-                                  className={`text-base sm:text-lg font-bold ${widget.color}`}
-                                >
-                                  {typeof param.data.value === "number"
-                                    ? param.data.value.toFixed(2) +
-                                      extractUnit(param.key)
-                                    : String(param.data.value) +
-                                      extractUnit(param.key)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    param.data.timestamp
-                                  ).toLocaleTimeString()}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-
-                      <div className="text-xs text-muted-foreground">
-                        System: {widget.path} •{" "}
-                        {Array.isArray(widget.value) ? widget.value.length : 0}{" "}
-                        parameters
-                      </div>
-                    </div>
-                  </CardContent>
-                  {/* <div className="flex gap-2 mb-2">
-                    {[6, 12, 24, 48].map((h) => (
-                      <Button
-                        key={h}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const keys = widget.value.map((v: any) => v.key);
-                          fetchTelemetryHistory(keys, h);
-                        }}
-                      >
-                        {h}h
-                      </Button>
-                    ))}
-                  </div> */}
-
-                  {/* 🟦 Chart Section — appears when the card is clicked */}
-                  {/* {selectedSystem === widget.key && (
-                    <div className="p-4 border-t border-muted bg-muted/20">
-                      {isChartLoading ? (
-                        <p className="text-sm text-muted-foreground">
-                          Loading chart...
-                        </p>
-                      ) : (
-                        Object.entries(telemetryHistory).map(([key, data]) => (
-                          <TelemetryChart
-                            key={key}
-                            name={formatParameterName(key)}
-                            data={data}
-                            unit={extractUnit(key)}
-                          />
-                        ))
-                      )}
-                    </div>
-                  )} */}
-                </Card>
-              ))}
-            </div>
           ) : (
             <Card className="industrial-card">
               <CardContent className="p-8 text-center">
@@ -1228,306 +1181,291 @@ const fetchLiveData = async (role?: "admin" | "user") => {
                 </Button>
               </CardContent>
             </Card>
+          )} */}
+
+          {device.status === "online" && realtimeData?.telemetry ? (
+            Object.entries(realtimeData.telemetry).map(
+              ([groupName, params]) => (
+                <div key={groupName} className="space-y-4">
+                  <h2 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+                    {groupName}
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {Object.entries(params).map(
+                      ([key, param]: [string, any]) => (
+                        <Card
+                          key={key}
+                          className="rounded-lg bg-card border border-border shadow-sm hover:shadow-md"
+                          onClick={() =>
+                            navigate(
+                              `/devices/${deviceId}/telemetry/${encodeURIComponent(
+                                key
+                              )}`,
+                              {
+                                state: { key }, // pass metric key to TelemetryDetailPage
+                              }
+                            )
+                          }
+                        >
+                          <CardContent className="p-2 flex flex-col items-center justify-center text-center">
+                            <MetricCard
+                              title={cleanMetricName(key.split("/")[1] || key)}
+                              value={Number(param.value) || 0}
+                              unit={param.unit || extractUnit(key)}
+                              icon={getIconForKey(key)}
+                              color={
+                                key.toLowerCase().includes("temp")
+                                  ? "#ff5c5c"
+                                  : key.toLowerCase().includes("voltage")
+                                  ? "#00FFAA"
+                                  : key.toLowerCase().includes("current")
+                                  ? "#00CCFF"
+                                  : key.toLowerCase().includes("power")
+                                  ? "#FFD700"
+                                  : key.toLowerCase().includes("frequency")
+                                  ? "#9D4EDD"
+                                  : "#00FA9A"
+                              }
+                            />
+                          </CardContent>
+                        </Card>
+                      )
+                    )}
+                  </div>
+                </div>
+              )
+            )
+          ) : (
+            <Card className="industrial-card">
+              <CardContent className="p-8 text-center">
+                <AlertTriangle className="w-8 h-8 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No Fresh Telemetry Data Available
+                </h3>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchLiveData()}
+                  className="text-sm"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Check for Live Data
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </div>
 
-        {/* Tabs Section */}
-        <Tabs defaultValue="info" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="info">Device Info</TabsTrigger>
-            <TabsTrigger value="raw">Raw Data</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="info">
+        {/* ✅ Admin-only Logs Section */}
+        {role === "admin" && (
+          <div className="space-y-6">
             <Card className="industrial-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="w-5 h-5" />
-                  Device Information
-                </CardTitle>
+                <CardTitle className="text-base sm:text-lg">Logs</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Live and historical logs from ThingsBoard telemetry key{" "}
+                  <code>logs</code>
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                  {/* Left column */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Device ID
-                      </label>
-                      <p className="text-foreground font-mono text-sm">
-                        {device.id}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Manufacturer
-                      </label>
-                      <p className="text-foreground">{device.manufacturer}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Model
-                      </label>
-                      <p className="text-foreground">{device.model}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Serial Number
-                      </label>
-                      <p className="text-foreground font-mono">
-                        {device.serialNumber}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right column */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Location
-                      </label>
-                      <p className="text-foreground flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        {device.location}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Firmware Version
-                      </label>
-                      <p className="text-foreground">
-                        {device.firmwareVersion}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Last Seen
-                      </label>
-                      <p className="text-foreground flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        {device.lastSeen}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Status
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`status-indicator ${getStatusColor(
-                            device.status
-                          )}`}
-                        ></div>
-                        <Badge
-                          variant={
-                            device.status === "online" ? "default" : "secondary"
-                          }
-                          className="capitalize"
-                        >
-                          {device.status}
-                        </Badge>
-                        <Badge variant="outline" className="animate-pulse">
-                          <Activity className="w-3 h-3 mr-1" />
-                          Live (5s)
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchLogsHistory(24, 200)}
+                  >
+                    Refresh Logs
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      logsDedupRef.current.clear();
+                      setLogs([]);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Showing {logs.length} entr
+                    {logs.length === 1 ? "y" : "ies"}
+                  </span>
                 </div>
+
+                {logs.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground text-sm">
+                    No logs available in the selected window.
+                  </div>
+                ) : (
+                  <ul className="space-y-2 max-h-96 overflow-y-auto">
+                    {logs.map((entry, idx) => (
+                      <li
+                        key={`${entry.timestamp}-${idx}`}
+                        className="p-3 rounded border bg-muted/30"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(entry.timestamp).toLocaleString()}
+                            </div>
+                            <pre className="whitespace-pre-wrap break-words text-sm mt-1">
+                              {entry.value}
+                            </pre>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            onClick={() =>
+                              navigator.clipboard.writeText(entry.value)
+                            }
+                            title="Copy"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                            >
+                              <rect
+                                x="9"
+                                y="9"
+                                width="13"
+                                height="13"
+                                rx="2"
+                                ry="2"
+                              ></rect>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="raw">
-            {/* Grid with two columns on large screens, stacked on small */}
-            {/* ✅ Dynamically adjust layout based on role */}
-            <div
-              className={`grid gap-4 ${
-                role === "admin" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
-              }`}
-            >
-              {/* ==== Raw Telemetry Data ==== */}
-              <Card className="industrial-card">
-                <CardHeader>
-                  <CardTitle className="text-base sm:text-lg">
-                    Raw Telemetry Data
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">
-                    Latest real-time sensor readings from ThingsBoard
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {realtimeData ? (
-                      <>
-                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                          <h4 className="font-medium mb-2 text-sm sm:text-base">
-                            Telemetry Data:
-                          </h4>
-                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                            {JSON.stringify(realtimeData.telemetry, null, 2)}
-                          </pre>
-                        </div>
-
-                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                          <h4 className="font-medium mb-2 text-sm sm:text-base">
-                            Attributes:
-                          </h4>
-                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-48 sm:max-h-64 whitespace-pre-wrap break-words">
-                            {JSON.stringify(
-                              deviceAttributes?.attributes ??
-                                realtimeData?.attributes ??
-                                {},
-                              null,
-                              2
-                            )}
-                          </pre>
-                        </div>
-
-                        <div className="bg-muted p-2 sm:p-4 rounded-lg">
-                          <h4 className="font-medium mb-2 text-sm sm:text-base">
-                            Available Keys:
-                          </h4>
-                          <pre className="text-xs sm:text-sm overflow-x-auto overflow-y-auto max-h-32 sm:max-h-64 whitespace-pre-wrap break-words">
-                            {JSON.stringify(realtimeData.keys, null, 2)}
-                          </pre>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm sm:text-base">
-                          No real-time data available. Check if device is
-                          sending telemetry to ThingsBoard.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* ==== Logs (side by side) ==== */}
-              {role === "admin" && (
-                <Card className="industrial-card">
-                  <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Logs</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">
-                      Live and historical logs from ThingsBoard telemetry key{" "}
-                      <code>logs</code>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fetchLogsHistory(24, 200)}
-                      >
-                        Refresh Logs
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          logsDedupRef.current.clear();
-                          setLogs([]);
-                        }}
-                      >
-                        Clear
-                      </Button>
-                      <span className="text-xs text-muted-foreground">
-                        Showing {logs.length} entr
-                        {logs.length === 1 ? "y" : "ies"}
-                      </span>
-                    </div>
-
-                    {logs.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground text-sm">
-                        No logs available in the selected window.
-                      </div>
-                    ) : (
-                      <ul className="space-y-2 max-h-96 overflow-y-auto">
-                        {logs.map((entry, idx) => (
-                          <li
-                            key={`${entry.timestamp}-${idx}`}
-                            className="p-3 rounded border bg-muted/30"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(entry.timestamp).toLocaleString()}
-                                </div>
-                                <pre className="whitespace-pre-wrap break-words text-sm mt-1">
-                                  {entry.value}
-                                </pre>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="shrink-0"
-                                onClick={() =>
-                                  navigator.clipboard.writeText(entry.value)
-                                }
-                                title="Copy"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                >
-                                  <rect
-                                    x="9"
-                                    y="9"
-                                    width="13"
-                                    height="13"
-                                    rx="2"
-                                    ry="2"
-                                  ></rect>
-                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
-                              </Button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </div>
+
+      {/* 🪄 Rename Device Dialog */}
+      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename Device</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Enter new device name"
+              className="w-full"
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!newName.trim()) {
+                  toast({
+                    title: "Invalid Name",
+                    description: "Please enter a valid device name.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                try {
+                  const res = await api.renameDevice(device.id, newName.trim());
+                  if (res.success) {
+                    toast({
+                      title: "Device Renamed",
+                      description: `Device renamed to "${newName.trim()}"`,
+                    });
+                    setDevice({ ...device, name: newName.trim() });
+                    setIsRenameOpen(false);
+                  }
+                } catch (err) {
+                  toast({
+                    title: "Rename Failed",
+                    description: "Unable to rename the device.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
 
-// FIXED: Helper function to extract unit from key name
+
+// ✅ Icon selector based on telemetry key
+const getIconForKey = (key: string): string => {
+  const lowerKey = key.toLowerCase();
+
+  if (lowerKey.includes("temp")) return "Thermometer";
+  if (lowerKey.includes("humidity")) return "Droplets";
+  if (lowerKey.includes("voltage") || lowerKey.includes("volt")) return "Zap";
+  if (lowerKey.includes("current") || lowerKey.includes("amp")) return "Activity";
+  if (lowerKey.includes("frequency") || lowerKey.includes("freq")) return "Waveform";
+  if (lowerKey.includes("power")) return "BatteryCharging";
+  if (lowerKey.includes("light")) return "Sun";
+  if (lowerKey.includes("relay")) return "ToggleRight";
+  if (lowerKey.includes("units") || lowerKey.includes("energy")) return "Battery";
+  return "Cpu"; // default fallback
+};
+
+// ✅ Clean metric label (removes trailing full unit names like Volts, Amps, Watts)
+const cleanMetricName = (name: string): string => {
+  return name
+    .replace(/voltage/gi, "Voltage")  // normalize casing
+    .replace(/current/gi, "Current")
+    .replace(/power factor/gi, "PF")
+    .replace(/frequency/gi, "Freq")
+    // remove full unit words (anywhere in key)
+    .replace(/\bvolts?\b/gi, "")
+    .replace(/\bamps?\b/gi, "")
+    .replace(/\bwatts?\b/gi, "")
+    .replace(/\bkwh\b/gi, "")
+    .replace(/\bunit[s]?\b/gi, "Units")
+    .replace(/\s+/g, " ")  // collapse extra spaces
+    .trim();
+};
+
+
+// ✅ Shorter and standardized unit symbols
 const extractUnit = (key: string): string => {
   const lowerKey = key.toLowerCase();
-  if (
-    lowerKey.includes("voltage") ||
-    lowerKey.includes("v1n") ||
-    lowerKey.includes("v2n") ||
-    lowerKey.includes("v3n")
-  )
+
+  if (lowerKey.includes("voltage") || lowerKey.includes("v1n") || lowerKey.includes("v2n") || lowerKey.includes("v3n"))
     return "V";
-  if (
-    lowerKey.includes("current") ||
-    lowerKey.includes("i1") ||
-    lowerKey.includes("i2") ||
-    lowerKey.includes("i3")
-  )
+  if (lowerKey.includes("current") || lowerKey.includes("i1") || lowerKey.includes("i2") || lowerKey.includes("i3"))
     return "A";
   if (lowerKey.includes("temperature") || lowerKey.includes("temp"))
     return "°C";
-  if (lowerKey.includes("humidity")) return "%";
-  if (lowerKey.includes("power") || lowerKey.includes("watts")) return "W";
-  if (lowerKey.includes("frequency") || lowerKey.includes("freq")) return "Hz";
-  if (lowerKey.includes("factor")) return "";
-  if (lowerKey.includes("units")) return "";
-  return "";
+  if (lowerKey.includes("humidity"))
+    return "%";
+  if (lowerKey.includes("power") || lowerKey.includes("watts"))
+    return "W";
+  if (lowerKey.includes("frequency") || lowerKey.includes("freq"))
+    return "Hz";
+  if (lowerKey.includes("unit") || lowerKey.includes("energy"))
+    return "kWh";
+  if (lowerKey.includes("relay") || lowerKey.includes("light"))
+    return "";
+  return ""; // default
 };
+
 
 export default DeviceDetail;

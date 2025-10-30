@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard"; 
 import { AdminRoute, PrivateRoute } from "./routes/guards";
 import TelemetryDetailPage from "@/pages/TelemetryDetailPage";
+import Reports from "@/pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -34,9 +35,11 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
             <Route path="/dashboard/:dashboardId" element={<DashboardView />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reports" element={<Reports />} />
             <Route
               path="/devices/:deviceId/telemetry/:system"
               element={<TelemetryDetailPage />}
+              
             />
             {/* <Route path="/admin" element={<AdminDashboard />} />
              */}
