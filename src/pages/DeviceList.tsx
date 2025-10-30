@@ -205,7 +205,16 @@ if (!token || !user) {
               > = live?.data || {};
 
               // Determine ONLINE if any recent datapoint exists
-              const isOnline = !!(live?.isLive || (live?.dataCount ?? 0) > 0);
+              // const isOnline = !!(live?.isLive || (live?.dataCount ?? 0) > 0);
+              const isOnline = !!(
+                (
+                  live?.isLive &&
+                  live?.dataCount > 0 &&
+                  live?.timestamp &&
+                  Date.now() - live.timestamp < 30_000
+                ) // 30s live window
+              );
+
 
               // Compute last seen from newest live timestamp (if any)
               const lastTs = Object.values(liveData).reduce(

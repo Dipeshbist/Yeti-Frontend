@@ -435,8 +435,31 @@ useEffect(() => {
     try {
       const live = await api.getDeviceLiveData(deviceId, undefined, 60, role);
       const groups = live?.groups || {};
+      // ⛔ Filter out stale telemetry older than 30 seconds
+      Object.keys(groups).forEach((groupName) => {
+        const group = groups[groupName];
+        Object.keys(group).forEach((key) => {
+          const item = group[key];
+          if (!item || Date.now() - item.ts > 30_000) {
+            delete group[key];
+          }
+        });
+        // remove empty groups
+        if (Object.keys(group).length === 0) {
+          delete groups[groupName];
+        }
+      });
 
-      const isOnline = Object.keys(groups).length > 0;
+      // const isOnline = Object.keys(groups).length > 0;
+
+      const isOnline = !!(
+        (
+          live?.isLive &&
+          live?.dataCount > 0 &&
+          live?.timestamp &&
+          Date.now() - live.timestamp < 30_000
+        ) // 30s live window
+      );
 
       setDevice((prev) =>
         prev ? { ...prev, status: isOnline ? "online" : "offline" } : prev
@@ -1191,8 +1214,11 @@ useEffect(() => {
                     {groupName}
                   </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {Object.entries(params).map(
-                      ([key, param]: [string, any]) => (
+                    {Object.entries(params)
+                      .filter(
+                        ([_, p]: any) => Date.now() - (p?.ts ?? 0) < 30_000
+                      ) // show only recent
+                      .map(([key, param]: [string, any]) => (
                         <Card
                           key={key}
                           className="rounded-lg bg-card border border-border shadow-sm hover:shadow-md"
@@ -1229,8 +1255,7 @@ useEffect(() => {
                             />
                           </CardContent>
                         </Card>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
               )

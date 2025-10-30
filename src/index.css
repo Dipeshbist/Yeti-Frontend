@@ -297,3 +297,12 @@
     filter: none;
   }
 }
+
+/* === Fix date input icon color for dark mode === */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0); /* light theme default */
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1); /* invert icon color in dark mode */
+}
