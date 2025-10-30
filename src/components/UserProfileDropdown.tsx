@@ -207,7 +207,7 @@ const handleLogout = () => {
           </DropdownMenuItem>
         )}
 
-        {userProfile?.customerId && (
+        {/* {userProfile?.customerId && (
           <DropdownMenuItem className="cursor-pointer">
             <Building className="mr-2 h-4 w-4" />
             <div className="flex flex-col">
@@ -219,7 +219,7 @@ const handleLogout = () => {
               </span>
             </div>
           </DropdownMenuItem>
-        )}
+        )} */}
 
         <DropdownMenuSeparator />
 

@@ -12,6 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+import {
   Cpu,
   Activity,
   Thermometer,
@@ -62,6 +71,9 @@ const handleRefresh = async () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState("");
 
   useEffect(() => {
     // Check if user has valid JWT token
@@ -463,28 +475,10 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
                         // ✅ Location already exists → just open the device
                         navigate(`/devices/${device.id}`);
                       } else {
-                        // ❌ No location yet → ask user to enter one
-                        const locationName = prompt(
-                          "Enter the location name for this device:"
-                        );
-                        if (locationName && locationName.trim()) {
-                          await api.saveDeviceLocation(
-                            device.id,
-                            locationName.trim()
-                          );
-                          toast({
-                            title: "Location Saved",
-                            description: `Location set as "${locationName}" for ${device.name}.`,
-                          });
-                          // Refresh the dashboard to show the new location
-                          await initializeDashboard();
-                        } else {
-                          toast({
-                            title: "Location Required",
-                            description: "Please enter a valid location name.",
-                            variant: "destructive",
-                          });
-                        }
+                   setSelectedDeviceId(device.id);
+                   setLocationName("");
+                   setIsLocationDialogOpen(true);
+
                       }
                     } catch (err) {
                       toast({
@@ -579,6 +573,70 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
           )}
         </div>
       </div>
+
+      {/* 🗺️ Add Location Dialog */}
+      <Dialog
+        open={isLocationDialogOpen}
+        onOpenChange={setIsLocationDialogOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Location</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Input
+              placeholder="Enter location name"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              className="w-full"
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsLocationDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!locationName.trim() || !selectedDeviceId) {
+                  toast({
+                    title: "Invalid Input",
+                    description: "Please enter a valid location name.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                try {
+                  await api.saveDeviceLocation(
+                    selectedDeviceId,
+                    locationName.trim()
+                  );
+                  toast({
+                    title: "Location Saved",
+                    description: `Location set as "${locationName}" successfully.`,
+                  });
+                  setIsLocationDialogOpen(false);
+                  await initializeDashboard(); // refresh list
+                } catch (err) {
+                  toast({
+                    title: "Save Failed",
+                    description: "Unable to save device location.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -8,9 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Cpu,
@@ -49,6 +57,12 @@ const DeviceList = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const searchRef = useRef<HTMLDivElement | null>(null);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState("");
+
+
 
   useEffect(() => {
 const userData = localStorage.getItem("user");
@@ -84,6 +98,28 @@ if (!token || !user) {
 
     setFilteredDevices(filtered);
   }, [devices, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setShowSearch(false);
+      }
+    }
+
+    if (showSearch) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSearch]);
+
 
   const initializeDeviceList = async () => {
     try {
@@ -412,7 +448,13 @@ if (!token || !user) {
 
           {/* Small floating search bar */}
           {showSearch && (
-            <div className="absolute right-4 top-50 bg-card border border-border rounded-md p-2 shadow-lg w-56 z-50">
+            <div
+              ref={searchRef} // 👈 attach ref here
+              className="
+      absolute right-4 top-16 bg-card border border-border 
+      rounded-md p-2 shadow-lg w-56 z-50 transition-all
+    "
+            >
               <Input
                 placeholder="Search devices..."
                 value={searchQuery}
@@ -456,20 +498,9 @@ if (!token || !user) {
                   if (res.location) {
                     navigate(`/devices/${device.id}`);
                   } else {
-                    const locationName = prompt(
-                      "Enter the location name for this device:"
-                    );
-                    if (locationName && locationName.trim()) {
-                      await api.saveDeviceLocation(
-                        device.id,
-                        locationName.trim()
-                      );
-                      toast({
-                        title: "Location Saved",
-                        description: `Location set as "${locationName}" for ${device.name}.`,
-                      });
-                      initializeDeviceList();
-                    }
+                    setSelectedDeviceId(device.id);
+                    setLocationName("");
+                    setIsLocationDialogOpen(true);
                   }
                 }}
               >
@@ -621,6 +652,70 @@ if (!token || !user) {
           </div>
         )}
       </div>
+
+      {/* 🗺️ Add Location Dialog */}
+      <Dialog
+        open={isLocationDialogOpen}
+        onOpenChange={setIsLocationDialogOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Location</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Input
+              placeholder="Enter location name"
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              className="w-full"
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsLocationDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!locationName.trim() || !selectedDeviceId) {
+                  toast({
+                    title: "Invalid Input",
+                    description: "Please enter a valid location name.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                try {
+                  await api.saveDeviceLocation(
+                    selectedDeviceId,
+                    locationName.trim()
+                  );
+                  toast({
+                    title: "Location Saved",
+                    description: `Location set as "${locationName}" successfully.`,
+                  });
+                  setIsLocationDialogOpen(false);
+                  await initializeDeviceList(); // refresh
+                } catch (err) {
+                  toast({
+                    title: "Save Failed",
+                    description: "Unable to save device location.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
