@@ -332,103 +332,7 @@ useEffect(() => {
     }
   };
 
-  // const fetchRealtimeData = async () => {
-  //   if (!deviceId) return;
-
-  //   try {
-  //     console.log("Fetching initial realtime data for:", deviceId);
-  //     const result = await api.getDeviceRealtime(deviceId);
-  //     console.log("Initial realtime data result:", result);
-
-  //     if (result) {
-  //       setRealtimeData(result);
-  //       generateTelemetryWidgets(result);
-  //       setLastUpdated(new Date());
-  //     }
-  //   } catch (error) {
-  //     console.error("Initial realtime data fetch error:", error);
-  //     // Fallback to live data if regular realtime fails
-  //     await fetchLiveData();
-  //   }
-  // };
-
-// const fetchLiveData = async (role?: "admin" | "user") => {
-//   if (!deviceId) return;
-
-//   try {
-//     // use tighter 10-second window
-//     const liveData = await api.getDeviceLiveData(
-//       deviceId,
-//       undefined,
-//       10,
-//       role
-//     );
-//     const keysData = liveData?.data || {};
-//     const now = Date.now();
-
-//     // keep only telemetry marked as isLive=true
-//     const filteredTelemetry: Record<string, any> = {};
-//     Object.entries(keysData).forEach(([key, val]: any) => {
-//       if (val?.isLive === true) filteredTelemetry[key] = val;
-//     });
-
-//     Object.entries(keysData).forEach(([key, val]: any) => {
-//       if (val?.isLive === true && key.toLowerCase().includes("logs")) {
-//         pushLog(val.timestamp ?? Date.now(), val.value);
-//       }
-//     });
-
-//     const isOnline = Object.keys(filteredTelemetry).length > 0;
-
-//     setDevice((prev) =>
-//       prev
-//         ? {
-//             ...prev,
-//             status: isOnline ? "online" : "offline",
-//             lastSeen: isOnline ? prev.lastSeen : "No recent telemetry",
-//           }
-//         : prev
-//     );
-
-//     // ⛔ if offline, clear telemetry widgets
-//     if (!isOnline) {
-//       setRealtimeData({
-//         deviceId,
-//         timestamp: now,
-//         telemetry: {},
-//         attributes: deviceAttributes?.attributes ?? {},
-//         keys: [],
-//       });
-//       setTelemetryWidgets([]);
-//       return;
-//     }
-
-//     // ✅ online: update real-time state
-//     setRealtimeData({
-//       deviceId: liveData.deviceId,
-//       timestamp: now,
-//       telemetry: filteredTelemetry,
-//       attributes:
-//         realtimeData?.attributes ?? deviceAttributes?.attributes ?? {},
-//       keys: Object.keys(filteredTelemetry),
-//     });
-
-//     setLastUpdated(new Date());
-//   } catch (error) {
-//     console.error("Live data fetch error:", error);
-
-//     // Handle expired token or missing session
-//     const user = JSON.parse(localStorage.getItem("user") || "null");
-//     if (!user) {
-//       localStorage.removeItem("token");
-//       localStorage.removeItem("user");
-//       localStorage.removeItem("customerId");
-//       navigate("/");
-//     }
-//   }
-// };
-
-  
+ 
   const fetchLiveData = async (role?: "admin" | "user") => {
     if (!deviceId) return;
 
@@ -1085,12 +989,22 @@ useEffect(() => {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              <div
+              {/* <div
                 className={`status-indicator ${getStatusColor(device.status)}`}
-              ></div>
-              <Badge
+              ></div> */}
+              {/* <Badge
                 variant={device.status === "online" ? "default" : "secondary"}
                 className="capitalize text-xs"
+              >
+                {device.status}
+              </Badge> */}
+
+              <Badge
+                className={`capitalize px-3 py-1 text-xs font-semibold rounded-md ${
+                  device.status === "online"
+                    ? "bg-success text-success-foreground"
+                    : "bg-destructive text-destructive-foreground"
+                }`}
               >
                 {device.status}
               </Badge>

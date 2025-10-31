@@ -475,10 +475,9 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
                         // ✅ Location already exists → just open the device
                         navigate(`/devices/${device.id}`);
                       } else {
-                   setSelectedDeviceId(device.id);
-                   setLocationName("");
-                   setIsLocationDialogOpen(true);
-
+                        setSelectedDeviceId(device.id);
+                        setLocationName("");
+                        setIsLocationDialogOpen(true);
                       }
                     } catch (err) {
                       toast({
@@ -499,21 +498,13 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
                       </div>
 
                       {/* Status badge (top right) */}
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            device.status === "online"
-                              ? "bg-success"
-                              : "bg-destructive"
-                          }`}
-                        />
+                      <div className="flex items-center">
                         <Badge
-                          variant={
+                          className={`capitalize px-3 py-1 text-xs font-semibold rounded-md ${
                             device.status === "online"
-                              ? "default"
-                              : "destructive"
-                          }
-                          className="capitalize"
+                              ? "bg-success text-success-foreground"
+                              : "bg-destructive text-destructive-foreground"
+                          }`}
                         >
                           {device.status}
                         </Badge>
