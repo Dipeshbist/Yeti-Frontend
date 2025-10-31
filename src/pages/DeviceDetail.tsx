@@ -1053,159 +1053,54 @@ useEffect(() => {
     <AppLayout>
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
               size="icon"
               onClick={() => {
-                // ✅ Step 1: try browser history first (best UX)
                 if (window.history.length > 1) {
                   navigate(-1);
                   return;
                 }
-
-                // ✅ Step 2: if no history (e.g., deep-linked)
-                if (from === "admin") {
-                  navigate("/admin");
-                } else {
-                  navigate("/devices");
-                }
+                if (from === "admin") navigate("/admin");
+                else navigate("/devices");
               }}
               className="h-8 w-8 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
 
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                {/* <h1 className="text-lg sm:text-xl font-bold text-foreground">
-                  {device.name}
-                </h1> */}
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg sm:text-xl font-bold text-foreground">
-                    {device.name}
-                  </h1>
-
-                  <button
-                    onClick={() => {
-                      setNewName(device.name);
-                      setIsRenameOpen(true);
-                    }}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="Rename Device"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`status-indicator ${getStatusColor(
-                      device.status
-                    )}`}
-                  ></div>
-                  <Badge
-                    variant={
-                      device.status === "online" ? "default" : "secondary"
-                    }
-                    className="capitalize text-xs"
-                  >
-                    {device.status}
-                  </Badge>
-                </div>
-              </div>
-              {/* <p className="text-sm text-muted-foreground">
-                {device.type} • {device.location}
-              </p> */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">
+                {device.name}
+              </h1>
+              <button
+                onClick={() => {
+                  setNewName(device.name);
+                  setIsRenameOpen(true);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Rename Device"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <div
+                className={`status-indicator ${getStatusColor(device.status)}`}
+              ></div>
+              <Badge
+                variant={device.status === "online" ? "default" : "secondary"}
+                className="capitalize text-xs"
+              >
+                {device.status}
+              </Badge>
             </div>
           </div>
-
-          {/*<div className="flex sm:justify-end">
-           <Button
-             variant="outline"
-             onClick={() => fetchLiveData()}
-             className="text-xs sm:text-sm h-8 sm:h-9 px-3"
-             disabled={isLivePolling}
-           >
-             <RefreshCw
-               className={`w-3 h-3 sm:w-4 sm:h-4 mr-2 ${
-                 isLivePolling ? "animate-spin" : ""
-               }`}
-             />
-             {isLivePolling ? "Updating..." : "Refresh Live"}
-           </Button>
-         </div> */}
         </div>
 
         {/* Dynamic Telemetry Widgets */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"></div>
-
-          {/* {device.status === "online" && telemetryWidgets.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-  {telemetryWidgets.flatMap((widget) =>
-    widget.value.map((param: any, paramIndex: number) => (
-      <Card
-        key={`${widget.key}-${paramIndex}`}
-        className="rounded-lg bg-card border border-border shadow-sm hover:shadow-md transition-transform transform hover:scale-[1.02] cursor-pointer h-[130px] flex items-center justify-center"
-        onClick={() =>
-          navigate(`/devices/${deviceId}/telemetry/${param.key}`, {
-            state: { key: param.key },
-          })
-        }
-      >
-        <CardContent className="p-2 w-full h-full flex flex-col items-center justify-center text-center">
-          <MetricCard
-            title={formatParameterName(param.key)}
-            value={Number(param.data.value) || 0}
-            unit={extractUnit(param.key)}
-            icon={
-              param.key.toLowerCase().includes("temp")
-                ? "Thermometer"
-                : param.key.toLowerCase().includes("power")
-                ? "Zap"
-                : param.key.toLowerCase().includes("humidity")
-                ? "Droplets"
-                : "Cpu"
-            }
-            color={
-              param.key.toLowerCase().includes("temp")
-                ? "#ff5c5c"
-                : param.key.toLowerCase().includes("humidity")
-                ? "#00BFFF"
-                : "#00FA9A"
-            }
-          />
-        </CardContent>
-      </Card>
-    ))
-  )}
-</div>
-
-          ) : (
-            <Card className="industrial-card">
-              <CardContent className="p-8 text-center">
-                <AlertTriangle className="w-8 h-8 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  No Fresh Telemetry Data Available
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  No live telemetry data from the last 30 seconds is available
-                  for this device.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => fetchLiveData()}
-                  className="text-sm"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Check for Live Data
-                </Button>
-              </CardContent>
-            </Card>
-          )} */}
-
           {device.status === "online" && realtimeData?.telemetry ? (
             Object.entries(realtimeData.telemetry).map(
               ([groupName, params]) => (
@@ -1284,38 +1179,44 @@ useEffect(() => {
         {role === "admin" && (
           <div className="space-y-6">
             <Card className="industrial-card">
-              <CardHeader>
-                <CardTitle className="text-base sm:text-lg">Logs</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Live and historical logs from ThingsBoard telemetry key{" "}
-                  <code>logs</code>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 mb-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchLogsHistory(24, 200)}
-                  >
-                    Refresh Logs
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      logsDedupRef.current.clear();
-                      setLogs([]);
-                    }}
-                  >
-                    Clear
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    Showing {logs.length} entr
-                    {logs.length === 1 ? "y" : "ies"}
-                  </span>
-                </div>
+              <CardHeader className="border-b border-border py-2">
+                {/* make one full-width row */}
+                <div className="flex w-full items-center justify-between">
+                  {/* Left: title */}
+                  <CardTitle className="text-base sm:text-lg font-semibold text-foreground">
+                    Logs
+                  </CardTitle>
 
+                  {/* Right: actions */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchLogsHistory(24, 200)}
+                    >
+                      Refresh Logs
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        logsDedupRef.current.clear();
+                        setLogs([]);
+                      }}
+                    >
+                      Clear
+                    </Button>
+
+                    {/* <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      Showing {logs.length}{" "}
+                      {logs.length === 1 ? "entry" : "entries"}
+                    </span> */}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent>
                 {logs.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground text-sm">
                     No logs available in the selected window.

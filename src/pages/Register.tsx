@@ -116,10 +116,6 @@ const Register = () => {
               <h2 className="text-3xl font-bold leading-tight">
                 Industrial Intelligence for Modern IoT
               </h2>
-              {/* <p className="mt-3 text-white/90">
-                Harness the power of connected intelligence. Register now to
-                access your personalized IoT dashboards and insights.
-              </p> */}
             </div>
 
             <ul className="space-y-3 text-sm mt-6">
@@ -163,7 +159,7 @@ const Register = () => {
                     Actionable Reports & Predictive Analytics
                   </p>
                   <p className="text-xs text-white/80">
-                    Export insights as CSV, Excel, or PDF to drive strategy.
+                    Export insights as CSV, or PDF to drive strategy.
                   </p>
                 </div>
               </li>
@@ -197,7 +193,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="w-full px-3 py-2 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your First Name"
+                        placeholder="Enter your first name"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         required
@@ -213,7 +209,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="w-full px-3 py-2 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your Last Name"
+                        placeholder="Enter your last name"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         required
@@ -229,7 +225,7 @@ const Register = () => {
                       <input
                         type="tel"
                         className="w-full px-3 py-2 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your Phone Number"
+                        placeholder="Enter your phone number"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         required
@@ -245,7 +241,7 @@ const Register = () => {
                       <input
                         type="email"
                         className="w-full px-3 py-2 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your Email"
+                        placeholder="Enter your email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -262,7 +258,7 @@ const Register = () => {
                         <input
                           type={showPassword ? "text" : "password"}
                           className="w-full px-3 py-2 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500 pr-10"
-                          placeholder="Enter your Password"
+                          placeholder="Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required

@@ -179,7 +179,7 @@ export default function Reports() {
     const { jsPDF } = await import("jspdf");
     const autoTable = (await import("jspdf-autotable")).default;
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.text("Yeti Insight — Telemetry Report", 14, 14);
+    doc.text("Yeti — Telemetry Report", 14, 14);
     const headers = [["Time", "Key", "Value", "Device ID"]];
     const body = data.map((r) => [r.time, r.key, String(r.value), r.deviceId]);
     autoTable(doc, {

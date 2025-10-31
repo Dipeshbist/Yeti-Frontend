@@ -115,10 +115,9 @@ export default function TelemetryDetailPage() {
 
           <div>
             <h1 className="text-xl font-bold text-foreground">
-              {/* Internal Data{" "} */}
-              {system ?? "unknown"}
-              {/* <span className="text-muted-foreground"></span> */}
+              {system ? system.split("/")[1] || system : "unknown"}
             </h1>
+
             <p className="text-sm text-muted-foreground mt-1">
               Showing last <span className="font-semibold">{hours}h</span> of
               data
@@ -161,8 +160,9 @@ export default function TelemetryDetailPage() {
           <Card key={selectedKey} className="industrial-card">
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold mb-3 text-primary">
-                {selectedKey}
+                {selectedKey.split("/")[1] || selectedKey}
               </h3>
+
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart
                   data={telemetryHistory[selectedKey]}
@@ -214,7 +214,33 @@ export default function TelemetryDetailPage() {
                       },
                     }}
                   />
+                  {/* <Tooltip
+                    labelFormatter={(v) =>
+                      new Date(v).toLocaleString("en-GB", {
+                        hour12: false,
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })
+                    }
+                    formatter={(v) => [v, "value"]}
+                  /> */}
+
                   <Tooltip
+                    contentStyle={{
+                      backgroundColor: theme === "dark" ? "#111827" : "#ffffff", // dark gray or white
+                      borderColor: "#00BFFF",
+                      borderWidth: 1,
+                      borderRadius: 8,
+                    }}
+                    itemStyle={{
+                      color: "#00BFFF", // value text always blue
+                      fontWeight: 500,
+                    }}
+                    labelStyle={{
+                      color: theme === "dark" ? "#e5e7eb" : "#374151", // light gray in dark mode
+                      fontWeight: 600,
+                    }}
                     labelFormatter={(v) =>
                       new Date(v).toLocaleString("en-GB", {
                         hour12: false,
@@ -225,6 +251,7 @@ export default function TelemetryDetailPage() {
                     }
                     formatter={(v) => [v, "value"]}
                   />
+
                   <Legend />
                   <Line
                     type="monotone"

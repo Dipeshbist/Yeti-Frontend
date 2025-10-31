@@ -149,7 +149,7 @@ const Login = () => {
                     Actionable Reports & Predictive Analytics
                   </p>
                   <p className="text-xs text-white/80">
-                    Export insights as CSV, Excel, or PDF to drive strategy.
+                    Export insights as CSV, or PDF to drive strategy.
                   </p>
                 </div>
               </li>
@@ -181,7 +181,7 @@ const Login = () => {
                       <input
                         type="email"
                         className="w-full px-3 py-2 mt-1 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="you@company.com"
+                        placeholder="Enter your email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         disabled={isLoading}
@@ -198,7 +198,7 @@ const Login = () => {
                         <input
                           type={showPassword ? "text" : "password"}
                           className="w-full px-3 py-2 mt-1 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500 pr-10"
-                          placeholder="••••••••"
+                          placeholder=" Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           disabled={isLoading}
