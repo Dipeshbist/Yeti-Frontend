@@ -214,17 +214,6 @@ export default function TelemetryDetailPage() {
                       },
                     }}
                   />
-                  {/* <Tooltip
-                    labelFormatter={(v) =>
-                      new Date(v).toLocaleString("en-GB", {
-                        hour12: false,
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })
-                    }
-                    formatter={(v) => [v, "value"]}
-                  /> */}
 
                   <Tooltip
                     contentStyle={{
@@ -260,7 +249,7 @@ export default function TelemetryDetailPage() {
                     strokeWidth={2}
                     dot={false}
                   />
-                  {/* ✅ Move Brush BELOW by adjusting its y position */}
+                  {/* Move Brush BELOW by adjusting its y position */}
                   <Brush
                     dataKey="time"
                     height={25}

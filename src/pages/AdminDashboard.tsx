@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { adminThingsboardApi } from "@/services/api";
 
 interface User {
   id: string;
@@ -30,6 +31,39 @@ const AdminDashboard = () => {
   const [myDashboards, setMyDashboards] = useState<any>(null);
   const [myDevices, setMyDevices] = useState<any>(null);
   const navigate = useNavigate();
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  const [showCreateDevice, setShowCreateDevice] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
+  const [showSelectCustomer, setShowSelectCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [customerDevices, setCustomerDevices] = useState<any[]>([]);
+  const [showSelectDevice, setShowSelectDevice] = useState(false);
+  const [deviceList, setDeviceList] = useState<any[]>([]);
+  const [deviceProfiles, setDeviceProfiles] = useState<any[]>([]);
+
+
+const [newCustomer, setNewCustomer] = useState({
+  title: "",
+  email: "",
+  country: "",
+  city: "",
+});
+const [newDevice, setNewDevice] = useState({
+  name: "",
+  // label: "",
+  // type: "default",
+  deviceProfileId: "ff0b6660-a596-11f0-a310-85b2fcee570f",
+});
+const [assignForm, setAssignForm] = useState({ customerId: "", deviceId: "" });
+const [showCustomersList, setShowCustomersList] = useState(false);
+const [showDevicesList, setShowDevicesList] = useState(false);
+const [showAssignedList, setShowAssignedList] = useState(false);
+
+const [customers, setCustomers] = useState<any[]>([]);
+const [devices, setDevices] = useState<any[]>([]);
+const [assignedDevices, setAssignedDevices] = useState<any[]>([]);
+
 
   const baseUrl =
     process.env.NODE_ENV === "production"
@@ -77,6 +111,22 @@ const fetchData = async () => {
     setLoading(false);
   }
 };
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        const res = await adminThingsboardApi.getDeviceProfiles();
+        setDeviceProfiles(res.data || []);
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: "Failed to load device profiles.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchProfiles();
+  }, []);
 
 
   useEffect(() => {
@@ -265,6 +315,51 @@ const handleViewUser = async (user: User) => {
   return (
     <AppLayout>
       <div className="p-6 space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin Tools</CardTitle>
+          </CardHeader>
+          <CardContent className="flex gap-2 flex-wrap">
+            <Button onClick={() => setShowCreateCustomer(true)}>
+              Create Customer
+            </Button>
+            <Button onClick={() => setShowCreateDevice(true)}>
+              Create Device
+            </Button>
+            <Button onClick={() => setShowAssign(true)}>
+              Assign Device & Customer ID
+            </Button>
+
+            <Button
+              onClick={async () => {
+                const res = await adminThingsboardApi.getAllCustomers();
+                setCustomers(res.data?.data || res.data || []);
+                setShowCustomersList(true);
+              }}
+            >
+              View All Customers
+            </Button>
+            <Button
+              onClick={async () => {
+                const res = await adminThingsboardApi.getAllDevices();
+                setDevices(res.data?.data || res.data || []);
+                setShowDevicesList(true);
+              }}
+            >
+              View All Devices
+            </Button>
+            <Button
+              onClick={async () => {
+                const res = await adminThingsboardApi.getAllCustomers();
+                setCustomerList(res.data?.data || res.data || []);
+                setShowSelectCustomer(true);
+              }}
+            >
+              View Assigned Devices
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Pending Users */}
         <Card>
           <CardHeader>
@@ -501,7 +596,7 @@ const handleViewUser = async (user: User) => {
                         navigate(`/devices/${dev.id.id}`, {
                           state: { from: "admin" },
                         })
-                      } // ✅ open device detail page
+                      } // open device detail page
                     >
                       <span>{dev.name}</span>
                       <span className="text-xs text-muted-foreground">
@@ -518,6 +613,767 @@ const handleViewUser = async (user: User) => {
 
               <div className="flex justify-end mt-6">
                 <Button variant="outline" onClick={() => setViewingUser(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Customer Modal */}
+        {showCreateCustomer && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg space-y-3 shadow-lg">
+              <h2 className="text-lg font-semibold">Create New Customer</h2>
+
+              <Input
+                placeholder="Customer Name"
+                value={newCustomer.title}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, title: e.target.value })
+                }
+              />
+              <Input
+                placeholder="Email"
+                value={newCustomer.email}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, email: e.target.value })
+                }
+              />
+              {/* <Input
+                placeholder="Country"
+                value={newCustomer.country}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, country: e.target.value })
+                }
+              />
+              <Input
+                placeholder="City"
+                value={newCustomer.city}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, city: e.target.value })
+                }
+              /> */}
+
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateCustomer(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await adminThingsboardApi.createCustomer(newCustomer);
+                      toast({ title: "Customer created successfully." });
+                      setShowCreateCustomer(false);
+                      setNewCustomer({
+                        title: "",
+                        email: "",
+                        country: "",
+                        city: "",
+                      });
+                    } catch (err) {
+                      toast({
+                        title: "Error creating customer",
+                        description: String(err),
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Device Modal */}
+        {showCreateDevice && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg space-y-3 shadow-lg">
+              <h2 className="text-lg font-semibold">Create New Device</h2>
+
+              <Input
+                placeholder="Device Name"
+                value={newDevice.name}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, name: e.target.value })
+                }
+              />
+              {/* <Input
+                placeholder="Label (optional)"
+                value={newDevice.label}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, label: e.target.value })
+                }
+              />
+              <Input
+                placeholder="Type (default)"
+                value={newDevice.type}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, type: e.target.value })
+                }
+              /> */}
+              <Input
+                placeholder="Device Profile ID"
+                value={newDevice.deviceProfileId}
+                onChange={(e) =>
+                  setNewDevice({
+                    ...newDevice,
+                    deviceProfileId: e.target.value,
+                  })
+                }
+              />
+
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateDevice(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await adminThingsboardApi.createDevice({
+                        name: newDevice.name,
+                        // label: newDevice.label,
+                        // type: newDevice.type,
+                        deviceProfileId: {
+                          id: newDevice.deviceProfileId,
+                          entityType: "DEVICE_PROFILE",
+                        },
+                      });
+                      toast({ title: "Device created successfully." });
+                      setShowCreateDevice(false);
+                      setNewDevice({
+                        name: "",
+                        // label: "",
+                        // type: "default",
+                        deviceProfileId: "",
+                      });
+                    } catch (err) {
+                      toast({
+                        title: "Error creating device",
+                        description: String(err),
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assign Device Modal */}
+        {showAssign && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg space-y-3 shadow-lg">
+              <h2 className="text-lg font-semibold">
+                Assign Device to Customer
+              </h2>
+
+              <label className="text-sm font-medium flex items-center justify-between">
+                <span>Customer ID</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const res = await adminThingsboardApi.getAllCustomers();
+                    setCustomers(res.data?.data || res.data || []);
+                    setShowCustomersList(true);
+                  }}
+                >
+                  Select Customer
+                </Button>
+              </label>
+
+              <Input
+                placeholder="Customer ID"
+                value={assignForm.customerId}
+                disabled={!!assignForm.customerId} // if filled from modal
+                onChange={(e) =>
+                  setAssignForm({ ...assignForm, customerId: e.target.value })
+                }
+              />
+
+              <div>
+                <label className="text-sm font-medium flex items-center justify-between">
+                  <span>Device ID</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const res = await adminThingsboardApi.getAllDevices();
+                        setDeviceList(res.data?.data || res.data || []);
+                        setShowSelectDevice(true);
+                      } catch (err) {
+                        toast({
+                          title: "Error fetching devices",
+                          description: String(err),
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Select Device
+                  </Button>
+                </label>
+
+                <Input
+                  placeholder="Device ID"
+                  value={assignForm.deviceId}
+                  disabled={!!assignForm.deviceId}
+                  onChange={(e) =>
+                    setAssignForm({ ...assignForm, deviceId: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setShowAssign(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await adminThingsboardApi.assignDevice(
+                        assignForm.customerId,
+                        assignForm.deviceId
+                      );
+                      toast({ title: "Device assigned successfully." });
+                      setShowAssign(false);
+                      setAssignForm({ customerId: "", deviceId: "" });
+                    } catch (err) {
+                      toast({
+                        title: "Error assigning device",
+                        description: String(err),
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Assign
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showCustomersList && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-4xl shadow-lg max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">All Customers</h2>
+              {customers.length ? (
+                <table className="w-full text-sm border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Title</th>
+                      <th className="text-left py-2">Email</th>
+                      {/* <th>City</th>
+                      <th>Country</th> */}
+                      <th className="text-left py-2">Customer ID</th>
+                      <th className="text-left py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map((c, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="py-1 px-2">{c.title}</td>
+                        <td className="py-1 px-2">{c.email || "—"}</td>
+                        {/* <td>{c.city || "—"}</td>
+                        <td>{c.country || "—"}</td> */}
+                        <td className="py-1 px-2 font-mono text-xs">
+                          {c.id?.id || c.id || "—"}
+                        </td>
+                        <td className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setAssignForm({
+                                ...assignForm,
+                                customerId: c.id?.id || c.id,
+                              });
+                              setShowCustomersList(false);
+                              setShowAssign(true);
+                              toast({
+                                title: "Customer Selected",
+                                description: `${c.title} (${c.id?.id}) selected.`,
+                              });
+                            }}
+                          >
+                            Select
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              if (confirm(`Delete customer "${c.title}"?`)) {
+                                try {
+                                  await adminThingsboardApi.deleteCustomer(
+                                    c.id?.id || c.id
+                                  );
+                                  toast({
+                                    title: "Customer deleted successfully.",
+                                  });
+                                  const refreshed =
+                                    await adminThingsboardApi.getAllCustomers();
+                                  setCustomers(refreshed.data?.data || []);
+                                } catch (err) {
+                                  toast({
+                                    title: "Error deleting customer",
+                                    description: String(err),
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No customers found.</p>
+              )}
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCustomersList(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showDevicesList && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-4xl shadow-lg max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">All Devices</h2>
+              {devices.length ? (
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Name</th>
+                      {/* <th>Label</th>
+                      <th>Type</th> */}
+                      <th className="text-left py-2">Customer</th>
+                      <th className="text-left py-2">Active</th>
+                      <th className="text-left py-2">Device ID</th>
+                      <th className="text-left py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {devices.map((d, i) => (
+                      <tr key={i} className="border-b hover:bg-muted/50">
+                        <td className="py-1 px-2">{d.name}</td>
+                        {/* <td>{d.label || "—"}</td>
+                        <td>{d.type || "default"}</td> */}
+                        <td className="py-1 px-2">
+                          {d.customerTitle || "Unassigned"}
+                        </td>
+                        <td className="py-1 px-2">{d.active ? "✅" : "❌"}</td>
+                        <td className="py-1 px-2 font-mono text-xs">
+                          {d.id?.id}
+                        </td>
+
+                        <td className="flex gap-2">
+                          {/* Select Button */}
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setAssignForm({
+                                ...assignForm,
+                                deviceId: d.id?.id || "",
+                              });
+                              setShowDevicesList(false);
+                              setShowAssign(true);
+                              toast({
+                                title: "Device Selected",
+                                description: `${d.name} (${d.id?.id}) selected.`,
+                              });
+                            }}
+                          >
+                            Select
+                          </Button>
+
+                          {/* Delete Button */}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              if (confirm(`Delete device "${d.name}"?`)) {
+                                try {
+                                  await adminThingsboardApi.deleteDevice(
+                                    d.id?.id || ""
+                                  );
+                                  toast({
+                                    title: "Device deleted successfully.",
+                                  });
+                                  const refreshed =
+                                    await adminThingsboardApi.getAllDevices();
+                                  setDevices(refreshed.data?.data || []);
+                                } catch (err) {
+                                  toast({
+                                    title: "Error deleting device",
+                                    description: String(err),
+                                    variant: "destructive",
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No devices found.</p>
+              )}
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDevicesList(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAssignedList && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-3xl shadow-lg max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">
+                Devices Assigned to Customer
+              </h2>
+              {assignedDevices.length ? (
+                <ul className="space-y-2">
+                  {assignedDevices.map((d: any, i: number) => (
+                    <li key={i} className="border p-2 rounded">
+                      <strong>{d.name}</strong> ({d.type}) —{" "}
+                      {d.deviceProfileName}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No assigned devices found.</p>
+              )}
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAssignedList(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Select Customer Modal */}
+        {showSelectCustomer && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-3xl shadow-lg max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">Select a Customer</h2>
+
+              {customerList.length ? (
+                <table className="w-full text-sm border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Name</th>
+                      <th className="text-left py-2">Email</th>
+                      {/* <th className="text-left py-2">City</th> */}
+                      <th className="text-left py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerList.map((c: any) => (
+                      <tr
+                        key={c.id?.id || c.title}
+                        className="border-b hover:bg-muted/50"
+                      >
+                        <td className="px-1 py-2">{c.title}</td>
+                        <td className="px-1 py-2">{c.email || "—"}</td>
+                        {/* <td>{c.city || "—"}</td> */}
+                        <td>
+                          {/* <Button
+                            size="sm"
+                            onClick={async () => {
+                              setSelectedCustomer(c);
+                              const res =
+                                await adminThingsboardApi.getDevicesForCustomer(
+                                  c.id?.id || c.id
+                                );
+                              setCustomerDevices(
+                                res.data?.data || res.data || []
+                              );
+                            }}
+                          >
+                            View Devices
+                          </Button> */}
+
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                setSelectedCustomer(c);
+
+                                // Clear previous devices
+                                setCustomerDevices([]);
+
+                                console.log(
+                                  `Fetching devices for customer: ${c.title} (${
+                                    c.id?.id || c.id
+                                  })`
+                                );
+
+                                // Fetch devices with proper parameters
+                                const res =
+                                  await adminThingsboardApi.getDevicesForCustomer(
+                                    c.id?.id || c.id,
+                                    100, // pageSize
+                                    0 // page
+                                  );
+
+                                console.log("Devices response:", res);
+
+                                // Handle different response structures from ThingsBoard
+                                let devices = [];
+                                if (res.data?.data) {
+                                  // PageData format: { data: [...], totalPages, totalElements, hasNext }
+                                  devices = res.data.data;
+                                } else if (Array.isArray(res.data)) {
+                                  // Direct array format
+                                  devices = res.data;
+                                } else if (res.data) {
+                                  // Single device object
+                                  devices = [res.data];
+                                }
+
+                                console.log(
+                                  `Found ${devices.length} devices for customer ${c.title}`
+                                );
+
+                                setCustomerDevices(devices);
+
+                                if (devices.length === 0) {
+                                  toast({
+                                    title: "No Devices Found",
+                                    description: `No devices are currently assigned to ${c.title}`,
+                                  });
+                                } else {
+                                  toast({
+                                    title: "Devices Loaded",
+                                    description: `Found ${devices.length} device(s) for ${c.title}`,
+                                  });
+                                }
+                              } catch (err) {
+                                console.error("Error fetching devices:", err);
+                                toast({
+                                  title: "Error fetching devices",
+                                  description:
+                                    err instanceof Error
+                                      ? err.message
+                                      : String(err),
+                                  variant: "destructive",
+                                });
+                                setCustomerDevices([]);
+                              }
+                            }}
+                          >
+                            View Devices
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No customers found.</p>
+              )}
+
+              {selectedCustomer && (
+                <div className="mt-6">
+                  <h3 className="text-md font-semibold mb-2">
+                    Devices Assigned to {selectedCustomer.title}
+                  </h3>
+                  {customerDevices.map((d: any) => (
+                    <li
+                      key={d.id?.id || d.id}
+                      className="p-2 border rounded flex justify-between items-center"
+                    >
+                      <div className="flex-1">
+                        <span className="font-medium">{d.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({d.type || d.deviceProfileName || "Unknown Type"})
+                        </span>
+                        {d.active !== undefined && (
+                          <span className="ml-2 text-xs">
+                            {d.active ? "✅ Active" : "❌ Inactive"}
+                          </span>
+                        )}
+                        {d.label && (
+                          <span className="block text-xs text-muted-foreground mt-1">
+                            Label: {d.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (
+                              confirm(
+                                `Unassign device "${d.name}" from ${selectedCustomer.title}?`
+                              )
+                            ) {
+                              try {
+                                await adminThingsboardApi.unassignDevice(
+                                  d.id?.id || d.id
+                                );
+                                toast({
+                                  title: "Device Unassigned",
+                                  description: `${d.name} has been unassigned from ${selectedCustomer.title}`,
+                                });
+
+                                // Refresh the devices list
+                                const refreshed =
+                                  await adminThingsboardApi.getDevicesForCustomer(
+                                    selectedCustomer.id?.id ||
+                                      selectedCustomer.id,
+                                    100,
+                                    0
+                                  );
+                                setCustomerDevices(
+                                  refreshed.data?.data || refreshed.data || []
+                                );
+                              } catch (err) {
+                                toast({
+                                  title: "Error unassigning device",
+                                  description: String(err),
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Unassign
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      onClick={() => {
+                        setShowAssign(true);
+                        setAssignForm({
+                          ...assignForm,
+                          customerId: selectedCustomer.id?.id,
+                        });
+                      }}
+                    >
+                      Assign New Device
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSelectCustomer(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Select Device Modal */}
+        {showSelectDevice && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-4xl shadow-lg max-h-[80vh] overflow-y-auto">
+              <h2 className="text-lg font-semibold mb-4">Select a Device</h2>
+
+              {deviceList.length ? (
+                <table className="w-full text-sm border-collapse table-fixed">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Device Name</th>
+                      {/* <th>Type</th>
+                      <th>Label</th> */}
+                      <th className="text-left py-2">Customer</th>
+                      <th className="text-left py-2">Device ID</th>
+                      <th className="text-left py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deviceList.map((d: any) => (
+                      <tr
+                        key={d.id?.id || d.name}
+                        className="border-b hover:bg-muted/50 transition"
+                      >
+                        <td className="py-1 px-2">{d.name}</td>
+                        {/* <td>{d.type || "default"}</td>
+                        <td>{d.label || "—"}</td> */}
+                        <td className="py-1 px-2">
+                          {d.customerTitle || "Unassigned"}
+                        </td>
+                        <td className="py-1 px-2 font-mono text-xs">
+                          {d.id?.id}
+                        </td>
+                        <td className="py-1 px-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setAssignForm({
+                                ...assignForm,
+                                deviceId: d.id?.id || "",
+                              });
+                              setShowSelectDevice(false);
+                              toast({
+                                title: "Device Selected",
+                                description: `${d.name} (${d.id?.id}) selected.`,
+                              });
+                            }}
+                          >
+                            Select
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No devices found.</p>
+              )}
+
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSelectDevice(false)}
+                >
                   Close
                 </Button>
               </div>

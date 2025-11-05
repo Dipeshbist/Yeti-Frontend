@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -37,7 +38,7 @@ import {
   ResponsiveContainer,
   Brush,
 } from "recharts";
-import GaugeCard from "@/components/GaugeCard";
+// import GaugeCard from "@/components/GaugeCard";
 import MetricCard from "@/components/GaugeCard";
 import {
   Dialog,
@@ -48,13 +49,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-
-
 interface DeviceInfo {
   id: string;
   name: string;
   type: string;
-  status: "online" | "offline" | "warning";
+  status: "online" | "offline";
   lastSeen: string;
   location: string;
   manufacturer: string;
@@ -98,7 +97,7 @@ interface DeviceAttributes {
 interface AttributeWidget {
   key: string;
   displayName: string;
-  value: Array<{ key: string; data: { value: any; timestamp: number } }>; // Changed to array like telemetry
+  value: Array<{ key: string; data: { value: any; timestamp: number } }>;
   timestamp: number;
   category: string;
   icon: string;
@@ -127,8 +126,6 @@ const DeviceDetail = () => {
   const from = (location.state as any)?.from as "admin" | "devices" | undefined;
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [newName, setNewName] = useState("");
-
-
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [realtimeData, setRealtimeData] = useState<RealTimeData | null>(null);
   const [historicalData, setHistoricalData] = useState<TelemetryData[]>([]);
@@ -144,10 +141,8 @@ const DeviceDetail = () => {
     []
   );
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
-
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const logsDedupRef = useRef<Set<string>>(new Set());
-
   const [role, setRole] = useState<"admin" | "user">("user");
 const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
 const [telemetryHistory, setTelemetryHistory] = useState<Record<string, any[]>>(
@@ -181,7 +176,7 @@ useEffect(() => {
 
   const detectedRole: "admin" | "user" =
     parsedUser?.role === "admin" ? "admin" : "user";
-  setRole(detectedRole); // ✅ Store it in state
+  setRole(detectedRole); //Store it in state
 
   const token =
     detectedRole === "admin"
@@ -289,8 +284,8 @@ useEffect(() => {
      ) {
        localStorage.removeItem("token");
        localStorage.removeItem("user");
-             localStorage.removeItem("adminToken");
-             localStorage.removeItem("adminUser");
+       localStorage.removeItem("adminToken");
+       localStorage.removeItem("adminUser");
        navigate("/");
        return;
      }
@@ -339,7 +334,7 @@ useEffect(() => {
     try {
       const live = await api.getDeviceLiveData(deviceId, undefined, 60, role);
       const groups = live?.groups || {};
-      // ⛔ Filter out stale telemetry older than 30 seconds
+      // Filter out stale telemetry older than 30 seconds
       Object.keys(groups).forEach((groupName) => {
         const group = groups[groupName];
         Object.keys(group).forEach((key) => {
@@ -354,15 +349,13 @@ useEffect(() => {
         }
       });
 
-      // const isOnline = Object.keys(groups).length > 0;
-
       const isOnline = !!(
         (
           live?.isLive &&
           live?.dataCount > 0 &&
           live?.timestamp &&
           Date.now() - live.timestamp < 30_000
-        ) // 30s live window
+        )
       );
 
       setDevice((prev) =>
@@ -381,9 +374,6 @@ useEffect(() => {
       console.error("fetchLiveData error:", err);
     }
   };
-
-
-
 
   // Read an attribute by key from TB attributes that may be an array [{key,value}] or an object
   const readAttr = (attrs: any, key: string) => {
@@ -444,7 +434,6 @@ useEffect(() => {
   // Add this helper function to generate attribute widgets
   const generateAttributeWidgets = (attributesData: DeviceAttributes) => {
     const widgets: AttributeWidget[] = [];
-
     if (
       attributesData.attributes &&
       Object.keys(attributesData.attributes).length > 0
@@ -469,7 +458,6 @@ useEffect(() => {
               cleanValue = JSON.stringify(rawValue);
             }
           }
-
           return {
             key: cleanKey,
             data: {
@@ -489,48 +477,43 @@ useEffect(() => {
         icon: "Settings",
         color: "text-blue-500",
       };
-
       widgets.push(consolidatedWidget);
     }
-
     setAttributeWidgets(widgets);
     console.log("Generated clean attribute widgets:", widgets);
   };
 
-  const getAttributeIcon = (key: string): string => {
-    const lowerKey = key.toLowerCase();
-    if (lowerKey.includes("name") || lowerKey.includes("addr")) return "User";
-    if (lowerKey.includes("time") || lowerKey.includes("activity"))
-      return "Clock";
-    if (lowerKey.includes("unit") || lowerKey.includes("value"))
-      return "Settings";
-    return "Info";
-  };
+  // const getAttributeIcon = (key: string): string => {
+  //   const lowerKey = key.toLowerCase();
+  //   if (lowerKey.includes("name") || lowerKey.includes("addr")) return "User";
+  //   if (lowerKey.includes("time") || lowerKey.includes("activity"))
+  //     return "Clock";
+  //   if (lowerKey.includes("unit") || lowerKey.includes("value"))
+  //     return "Settings";
+  //   return "Info";
+  // };
 
-  const getAttributeColor = (key: string, index: number): string => {
-    const colors = [
-      "text-blue-500",
-      "text-green-500",
-      "text-purple-500",
-      "text-orange-500",
-      "text-pink-500",
-      "text-cyan-500",
-    ];
-    return colors[index % colors.length];
-  };
+  // const getAttributeColor = (key: string, index: number): string => {
+  //   const colors = [
+  //     "text-blue-500",
+  //     "text-green-500",
+  //     "text-purple-500",
+  //     "text-orange-500",
+  //     "text-pink-500",
+  //     "text-cyan-500",
+  //   ];
+  //   return colors[index % colors.length];
+  // };
 
   const fetchRealDeviceData = async (role?: "admin" | "user") => {
     try {
       if (!deviceId) return;
-
       console.log("Fetching device info for:", deviceId);
       const deviceResult = await api.getDeviceInfo(deviceId, role);
       console.log("Device info result:", deviceResult);
-
       if (deviceResult.error) {
         throw new Error(deviceResult.error);
       }
-
       const deviceInfo = deviceResult;
       const transformedDevice: DeviceInfo = {
         id: deviceInfo.id?.id || deviceId,
@@ -546,11 +529,8 @@ useEffect(() => {
         serialNumber: deviceId,
         firmwareVersion: "v1.0.0",
       };
-
       setDevice(transformedDevice);
       console.log("Transformed device:", transformedDevice);
-
-      // await fetchRealtimeData();
       await fetchHistoricalData();
       await fetchDeviceAttributes();
     } catch (error) {
@@ -612,10 +592,8 @@ useEffect(() => {
 
             transformedData.push(dataPoint);
           });
-
         setHistoricalData(transformedData);
         console.log("Transformed historical data:", transformedData);
-
         // Debug: Show all available keys in the first data point
         if (transformedData.length > 0) {
           console.log(
@@ -651,7 +629,6 @@ useEffect(() => {
     }
   };
 
-  
   const formatRelativeTime = (timestamp: number): string => {
     const now = Date.now();
     const diffMs = now - timestamp;
@@ -698,7 +675,6 @@ useEffect(() => {
         }
       }
     }
-
     return map;
   };
 
@@ -762,49 +738,6 @@ useEffect(() => {
     setTelemetryWidgets(widgets);
     console.log("Sensor name map used for titles:", nameMap);
   };
-
-  // FIXED: More flexible sensor system extraction
-  // const extractSensorSystem = (key: string): string => {
-  //   // Check for existing s1/ pattern first
-  //   const slashMatch = key.match(/^(s\d+)\//);
-  //   if (slashMatch) return slashMatch[1];
-
-  //   // More flexible pattern matching - use substring contains instead of exact matches
-  //   const lowerKey = key.toLowerCase();
-
-  //   // Group S1 parameters more flexibly
-  //   if (
-  //     lowerKey.includes("v1n") ||
-  //     lowerKey.includes("v2n") ||
-  //     lowerKey.includes("v3n") ||
-  //     lowerKey.includes("i1") ||
-  //     lowerKey.includes("i2") ||
-  //     lowerKey.includes("i3") ||
-  //     lowerKey.includes("units2") ||
-  //     lowerKey.includes("units3") ||
-  //     lowerKey.includes("frequency") ||
-  //     lowerKey.includes("power factor 1")
-  //   ) {
-  //     return "s1";
-  //   }
-
-  //   // Group S2 parameters
-  //   if (
-  //     lowerKey.includes("v4n") ||
-  //     lowerKey.includes("v5n") ||
-  //     lowerKey.includes("v6n") ||
-  //     lowerKey.includes("power factor 2")
-  //   ) {
-  //     return "s2";
-  //   }
-
-  //   // Fallback for anything else with voltage/current
-  //   if (lowerKey.includes("voltage") || lowerKey.includes("current")) {
-  //     return "s1"; // Default electrical parameters to s1
-  //   }
-
-  //   return "unknown";
-  // };
 
   // Put s1/..., s2/... into those buckets. Everything else -> "internal".
   const extractSensorSystem = (key: string): string => {
@@ -989,16 +922,7 @@ useEffect(() => {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              {/* <div
-                className={`status-indicator ${getStatusColor(device.status)}`}
-              ></div> */}
-              {/* <Badge
-                variant={device.status === "online" ? "default" : "secondary"}
-                className="capitalize text-xs"
-              >
-                {device.status}
-              </Badge> */}
-
+         
               <Badge
                 className={`capitalize px-3 py-1 text-xs font-semibold rounded-md ${
                   device.status === "online"
@@ -1089,7 +1013,7 @@ useEffect(() => {
           )}
         </div>
 
-        {/* ✅ Admin-only Logs Section */}
+        {/* Admin-only Logs Section */}
         {role === "admin" && (
           <div className="space-y-6">
             <Card className="industrial-card">
@@ -1121,11 +1045,6 @@ useEffect(() => {
                     >
                       Clear
                     </Button>
-
-                    {/* <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      Showing {logs.length}{" "}
-                      {logs.length === 1 ? "entry" : "entries"}
-                    </span> */}
                   </div>
                 </div>
               </CardHeader>
@@ -1250,7 +1169,7 @@ useEffect(() => {
 };
 
 
-// ✅ Icon selector based on telemetry key
+//  Icon selector based on telemetry key
 const getIconForKey = (key: string): string => {
   const lowerKey = key.toLowerCase();
 
@@ -1266,7 +1185,7 @@ const getIconForKey = (key: string): string => {
   return "Cpu"; // default fallback
 };
 
-// ✅ Clean metric label (removes trailing full unit names like Volts, Amps, Watts)
+// Clean metric label (removes trailing full unit names like Volts, Amps, Watts)
 const cleanMetricName = (name: string): string => {
   return name
     .replace(/voltage/gi, "Voltage")  // normalize casing
@@ -1284,7 +1203,7 @@ const cleanMetricName = (name: string): string => {
 };
 
 
-// ✅ Shorter and standardized unit symbols
+// Shorter and standardized unit symbols
 const extractUnit = (key: string): string => {
   const lowerKey = key.toLowerCase();
 

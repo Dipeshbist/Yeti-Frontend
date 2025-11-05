@@ -87,176 +87,137 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
-      <header className="w-full py-4 px-8 flex items-center justify-between bg-background text-foreground transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <img src="/yeti-logo.png" alt="Yeti Logo" className="h-8 yeti-logo" />
-        </div>
-        {/* <p className="text-sm opacity-80">
-          Industrial IoT Intelligence Platform
-        </p> */}
-      </header>
+     
 
       {/* ---------- Main Section ---------- */}
-      <main className="flex flex-1 items-center justify-center p-6">
-        <div className="flex flex-col lg:grid lg:grid-cols-2 w-full max-w-6xl rounded-xl shadow-2xl overflow-hidden border border-border bg-card mx-auto transition-all duration-300">
-          {/* Left Side Description */}
-          <div className="flex flex-col justify-center items-start bg-gradient-to-tr from-blue-900 via-indigo-800 to-purple-700 text-white px-6 py-10 sm:px-8 md:px-10 lg:py-16 space-y-6 text-left">
-            <div>
-              <h2 className="text-3xl font-bold leading-tight">
-                Industrial Intelligence for Modern IoT
-              </h2>
-              {/* <p className="mt-3 text-white/90">
-                Harness the power of real-time telemetry, advanced analytics,
-                and scalable automation. Yeti helps your organization
-                make data-driven decisions with precision and speed.
-              </p> */}
-            </div>
-            <ul className="space-y-3 text-sm mt-6">
-              <li className="flex items-center gap-3">
-                <div className="bg-blue-500/20 rounded-md p-1.5">
-                  <Shield className="w-4 h-4 text-blue-300" />
-                </div>
-                <div>
-                  <p className="font-medium text-white">
-                    Secure Multi-Tenant Architecture
-                  </p>
-                  <p className="text-xs text-white/80">
-                    Enterprise-grade RBAC and encrypted access control.
-                  </p>
-                </div>
-              </li>
+      <main className="relative flex items-center justify-center min-h-screen overflow-hidden bg-[#070b14]">
+        {/* 🌆 Background cityscape */}
+        {/* <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: "url('/image.png')", // 🏙️ Add a dark-blue city image
+          }}
+        ></div> */}
 
-              <li className="flex items-center gap-3">
-                <div className="bg-blue-500/20 rounded-md p-1.5">
-                  <Activity className="w-4 h-4 text-blue-300" />
-                </div>
-                <div>
-                  <p className="font-medium text-white">
-                    Real-Time Telemetry Visualization
-                  </p>
-                  <p className="text-xs text-white/80">
-                    Live dashboards powered by precision IoT data.
-                  </p>
-                </div>
-              </li>
+        {/* 🔵 IoT glow overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a1022]/95 via-[#0f1530]/60 to-transparent"></div>
 
-              <li className="flex items-center gap-3">
-                <div className="bg-blue-500/20 rounded-md p-1.5">
-                  <BarChart3 className="w-4 h-4 text-blue-300" />
-                </div>
-                <div>
-                  <p className="font-medium text-white">
-                    Actionable Reports & Predictive Analytics
-                  </p>
-                  <p className="text-xs text-white/80">
-                    Export insights as CSV, or PDF to drive strategy.
-                  </p>
-                </div>
-              </li>
-            </ul>
+        {/* ✨ Connected ray network */}
+        <svg
+          className="absolute inset-0 w-full h-full opacity-20"
+          viewBox="0 0 1600 900"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <g stroke="#3b82f6" strokeWidth="0.6">
+            <line x1="100" y1="700" x2="600" y2="300" />
+            <line x1="600" y1="300" x2="1100" y2="600" />
+            <line x1="1100" y1="600" x2="1450" y2="400" />
+            <circle cx="600" cy="300" r="3" fill="#60a5fa" />
+            <circle cx="1100" cy="600" r="3" fill="#60a5fa" />
+            <circle cx="1450" cy="400" r="3" fill="#60a5fa" />
+            <circle cx="100" cy="700" r="3" fill="#60a5fa" />
+          </g>
+        </svg>
 
-            <p className="text-xs mt-6 text-white/70">
-              © {new Date().getFullYear()} Yeti. All rights reserved.
+        {/* 🧠 Floating glow particles */}
+        <div className="absolute inset-0">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-blue-400/70 rounded-full blur-sm animate-float"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${i * 0.8}s`,
+              }}
+            ></div>
+          ))}
+        </div>
+
+        
+        {/* 🧊 Login card (right side) */}
+        <div className="relative z-20 flex flex-col items-center justify-center w-full max-w-sm md:max-w-md bg-[#0f1628]/80 backdrop-blur-lg rounded-2xl border border-blue-400/20 shadow-[0_0_30px_rgba(80,120,255,0.3)] p-8 md:mr-24 animate-fadeIn">
+          <div className="w-full text-center mb-6">
+            <img
+              src="/yeti-logo.png"
+              alt="Yeti Logo"
+              className="mx-auto h-10 brightness-200"
+            />
+            <h2 className="text-2xl font-semibold text-white mt-4">
+              Login to Yeti
+            </h2>
+            <p className="text-blue-300 text-sm mt-1">
+              Industrial Intelligence Platform
             </p>
           </div>
 
-          {/* Right Side Form */}
-          <div className="flex items-center justify-center px-4 py-8 sm:px-8 lg:p-16">
-            <div className="w-full max-w-sm sm:max-w-md md:max-w-lg">
-              <Card className="bg-card border border-border rounded-xl shadow-lg">
-                <CardHeader className="pb-4 text-center">
-                  <CardTitle className="text-xl font-semibold">Login</CardTitle>
-                  <CardDescription>
-                    Sign in to access your Yeti dashboard
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    {/* Email */}
-                    <div>
-                      <label className="text-xs font-medium text-foreground">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        className="w-full px-3 py-2 mt-1 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                        required
-                      />
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label className="text-xs font-medium text-foreground">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          className="w-full px-3 py-2 mt-1 text-sm border rounded bg-gray-50 dark:bg-gray-800 text-foreground focus:ring-1 focus:ring-blue-500 focus:border-blue-500 pr-10"
-                          placeholder=" Enter your password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          disabled={isLoading}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                          aria-label="Toggle password visibility"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Submit */}
-                    <button
-                      type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium text-sm transition-colors duration-200 disabled:opacity-50"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Signing In..." : "Sign In"}
-                    </button>
-
-                    {/* Register link */}
-                    <p className="text-center text-sm text-muted-foreground mt-3">
-                      Don’t have an account?{" "}
-                      <Link
-                        to="/register"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Create one
-                      </Link>
-                    </p>
-                  </form>
-                </CardContent>
-              </Card>
+          {/* Login form */}
+          <form onSubmit={handleLogin} className="space-y-4 w-full">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Email</label>
+              <input
+                type="email"
+                className="w-full p-2.5 rounded bg-[#141b2f] border border-blue-500/40 text-white focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
-          </div>
+
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full p-2.5 rounded bg-[#141b2f] border border-blue-500/40 text-white focus:ring-1 focus:ring-blue-400 focus:outline-none pr-10"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-blue-300 transition"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 transition text-white font-medium mt-4"
+            >
+              {isLoading ? "Signing In..." : "Sign In"}
+            </button>
+
+            <p className="text-center text-sm text-gray-400 mt-4">
+              Don’t have an account?{" "}
+              <Link to="/register" className="text-blue-400 hover:underline">
+                Create one
+              </Link>
+            </p>
+          </form>
         </div>
       </main>
-
-      {/* ---------- Footer ---------- */}
-      <footer className="w-full py-3 px-6 text-center text-xs text-muted-foreground bg-background transition-colors duration-300">
-        Powered by{" "}
-        <span className="font-semibold text-primary">Garud Cloud</span> • Built
-        with precision & reliability
-      </footer>
     </div>
   );
 };
 
 export default Login;
+
+
+
+
+
 
 
 

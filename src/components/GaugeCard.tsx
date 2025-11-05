@@ -40,7 +40,7 @@ export default function MetricCard({
 
   const Icon = IconMap[icon] || Droplets;
 
-  // ✅ Normalize unit words to short symbols (case-insensitive)
+  // Normalize unit words to short symbols (case-insensitive)
   const normalizeUnit = (rawUnit: string): string => {
     if (!rawUnit) return "";
     const u = rawUnit.toLowerCase().trim();

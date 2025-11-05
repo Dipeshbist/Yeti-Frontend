@@ -1,12 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// API service for Yeti Insight Dashboard
-// Backend server running on port 8080
-// const BASE_URL = "http://localhost:8080";
-
-// const BASE_URL =
-//   window.location.hostname === "localhost"
-//     ? "http://localhost:8080"
-//     : `http://${window.location.hostname}:8080`;
 
 const BASE_URL =
   process.env.NODE_ENV === "production"
@@ -28,8 +20,6 @@ const getAuthToken = (role?: "admin" | "user") => {
     return "";
   }
 };
-
-
 
 export interface ApiResponse<T> {
   data: T;
@@ -377,10 +367,14 @@ export const api = {
   },
 
   // ✅ Save device location (auto-fills via backend)
-  saveDeviceLocation: (deviceId: string, location: string) =>
+  // ✅ Save device location with precise coordinates
+  saveDeviceLocation: (
+    deviceId: string,
+    payload: { location: string; lat: number; lng: number }
+  ) =>
     apiCall(`/devices/${deviceId}/location`, {
       method: "POST",
-      body: JSON.stringify({ location }),
+      body: JSON.stringify(payload),
     }),
 
   // ✅ Get existing location
@@ -414,4 +408,85 @@ export const api = {
 
     return response.json();
   },
+};
+
+
+export const adminThingsboardApi = {
+  createCustomer: (body: any) =>
+    apiCall(
+      `/admin/thingsboard/customers`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      "admin"
+    ),
+
+  createDevice: (body: any) =>
+    apiCall(
+      `/admin/thingsboard/devices`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      "admin"
+    ),
+
+  assignDevice: (customerId: string, deviceId: string) =>
+    apiCall(
+      `/admin/thingsboard/customers/${customerId}/devices/${deviceId}`,
+      { method: "POST" },
+      "admin"
+    ),
+
+  unassignDevice: (deviceId: string) =>
+    apiCall(
+      `/admin/thingsboard/customers/devices/${deviceId}`,
+      { method: "DELETE" },
+      "admin"
+    ),
+
+  deleteDevice: (deviceId: string) =>
+    apiCall(
+      `/admin/thingsboard/devices/${deviceId}`,
+      { method: "DELETE" },
+      "admin"
+    ),
+
+  getAllCustomers: () => apiCall(`/admin/thingsboard/customers`, {}, "admin"),
+
+  getAllDevices: () => apiCall(`/admin/thingsboard/devices`, {}, "admin"),
+
+  // getDevicesForCustomer: (customerId: string) =>
+  //   apiCall(`/admin/thingsboard/customers/${customerId}/devices`, {}, "admin"),
+
+  getDevicesForCustomer: async (
+    customerId: string,
+    pageSize = 100,
+    page = 0
+  ) => {
+    try {
+      const url = `/admin/thingsboard/customers/${customerId}/devices?pageSize=${pageSize}&page=${page}`;
+      console.log(`Fetching devices for customer ${customerId} from ${url}`);
+      const response = await apiCall(url, {}, "admin");
+      console.log(`Received devices:`, response);
+      return response;
+    } catch (error) {
+      console.error(
+        `Error fetching devices for customer ${customerId}:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  deleteCustomer: (customerId: string) =>
+    apiCall(
+      `/admin/thingsboard/customers/${customerId}`,
+      { method: "DELETE" },
+      "admin"
+    ),
+
+  getDeviceProfiles: () =>
+    apiCall(`/admin/thingsboard/device-profiles`, {}, "admin"),
 };

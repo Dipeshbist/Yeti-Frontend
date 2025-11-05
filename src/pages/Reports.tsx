@@ -152,45 +152,65 @@ export default function Reports() {
   }, [devices, deviceId, hours]);
 
   // Exporters
-  const exportCSV = () => {
-    if (!hasData) return;
-    const csv = toCSV(data);
-    downloadFile(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
-      `${filenameBase}.csv`
-    );
-  };
+ const exportCSV = () => {
+   if (!hasData) return;
 
-  // const exportXLSX = async () => {
-  //   if (!hasData) return;
-  //   const { utils, write } = await import("xlsx"); // dynamic import
-  //   const sheet = utils.json_to_sheet(data);
-  //   const wb = utils.book_new();
-  //   utils.book_append_sheet(wb, sheet, "Report");
-  //   const xlsb = write(wb, { type: "array", bookType: "xlsx" });
-  //   downloadFile(
-  //     new Blob([xlsb], { type: "application/octet-stream" }),
-  //     `${filenameBase}.xlsx`
-  //   );
-  // };
+   const d = devices.find((d) => d.id.id === deviceId);
+   const deviceHeader = `Device Name: ${d?.name || "N/A"}, Device ID: ${
+     d?.id?.id || "N/A"
+   }\n\n`;
 
-  const exportPDF = async () => {
-    if (!hasData) return;
-    const { jsPDF } = await import("jspdf");
-    const autoTable = (await import("jspdf-autotable")).default;
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.text("Yeti — Telemetry Report", 14, 14);
-    const headers = [["Time", "Key", "Value", "Device ID"]];
-    const body = data.map((r) => [r.time, r.key, String(r.value), r.deviceId]);
-    autoTable(doc, {
-      head: headers,
-      body,
-      startY: 20,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [31, 58, 215] },
-    });
-    doc.save(`${filenameBase}.pdf`);
-  };
+   // Omit deviceId column for CSV
+   const cleaned = data.map(({ time, key, value }) => ({ time, key, value }));
+   const csv = deviceHeader + toCSV(cleaned);
+
+   downloadFile(
+     new Blob([csv], { type: "text/csv;charset=utf-8" }),
+     `${filenameBase}.csv`
+   );
+ };
+
+
+const exportPDF = async () => {
+  if (!hasData) return;
+
+  const { jsPDF } = await import("jspdf");
+  const autoTable = (await import("jspdf-autotable")).default;
+
+  const doc = new jsPDF({ orientation: "landscape" });
+
+  // 🧾 Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("Yeti — Telemetry Report", 14, 18);
+
+  // 🧩 Device Info
+  const d = devices.find((d) => d.id.id === deviceId);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.text(`Device Name: ${d?.name || "N/A"}`, 14, 28);
+  doc.text(`Device ID: ${d?.id?.id || "N/A"}`, 14, 36);
+
+  // 🧱 Table
+  const headers = [["Time", "Key", "Value"]];
+  const body = data.map((r) => [r.time, r.key, String(r.value)]);
+
+  autoTable(doc, {
+    head: headers,
+    body,
+    startY: 44, // 👈 Start table below device info
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [31, 58, 215] },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+
+  // 💾 Save
+  const filenameBase = d?.name
+    ? `report_${d.name.replace(/\s+/g, "_")}`
+    : "device_report";
+  doc.save(`${filenameBase}.pdf`);
+};
+
 
   return (
     <AppLayout>
@@ -212,9 +232,6 @@ export default function Reports() {
                     {devices.map((d) => (
                       <SelectItem key={d.id.id} value={d.id.id}>
                         {d.name}
-                        {/* <span className="text-xs text-muted-foreground">
-                          {d.type}
-                        </span> */}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -274,14 +291,6 @@ export default function Reports() {
               >
                 <FileText className="w-4 h-4" /> Export CSV
               </Button>
-              {/* <Button
-                variant="outline"
-                onClick={exportXLSX}
-                disabled={!hasData}
-                className="gap-2"
-              >
-                <FileSpreadsheet className="w-4 h-4" /> Export Excel
-              </Button> */}
               <Button
                 variant="outline"
                 onClick={exportPDF}
@@ -305,7 +314,6 @@ export default function Reports() {
                     <th className="text-left p-2">Time</th>
                     <th className="text-left p-2">Key</th>
                     <th className="text-left p-2">Value</th>
-                    <th className="text-left p-2">Device ID</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,12 +322,11 @@ export default function Reports() {
                       <td className="p-2 whitespace-nowrap">{r.time}</td>
                       <td className="p-2">{r.key}</td>
                       <td className="p-2">{String(r.value)}</td>
-                      <td className="p-2 font-mono text-xs">{r.deviceId}</td>
                     </tr>
                   ))}
                   {!data.length && (
                     <tr>
-                      <td className="p-4 text-muted-foreground" colSpan={4}>
+                      <td className="p-4 text-muted-foreground" colSpan={3}>
                         No data loaded yet.
                       </td>
                     </tr>

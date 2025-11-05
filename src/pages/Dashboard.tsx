@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +21,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useMemo } from "react";
+import { DeviceMap } from "@/components/DeviceMap"; // you'll create this in Step 4
+import { MapSearchBox } from "@/components/MapSearchBox";
+
 
 import {
   Cpu,
@@ -36,14 +42,10 @@ interface CustomerDevice {
   id: string;
   name: string;
   type: string;
-  status: "online" | "offline" | "warning";
-  // lastSeen: string;
+  status: "online" | "offline";
   location: string;
-  // telemetry: {
-  //   temperature?: number;
-  //   humidity?: number;
-  //   voltage?: number;
-  // };
+  lat?: number | null; // NEW
+  lng?: number | null; // NEW
 }
 
 interface CustomerDashboard {
@@ -63,19 +65,30 @@ interface User {
 }
 
 const Dashboard = () => {
-const handleRefresh = async () => {
-  await initializeDashboard();
-};
-  const [devices, setDevices] = useState<CustomerDevice[]>([]);
-  const [dashboards, setDashboards] = useState<CustomerDashboard[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+// const handleRefresh = async () => {
+//   await initializeDashboard();
+// };
+const [devices, setDevices] = useState<CustomerDevice[]>([]);
+const [dashboards, setDashboards] = useState<CustomerDashboard[]>([]);
+const [user, setUser] = useState<User | null>(null);
+const [isLoading, setIsLoading] = useState(true);
+const navigate = useNavigate();
+const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [locationName, setLocationName] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ display_name: string; lat: string; lon: string }>
+  >([]);
+  const [flyToCenter, setFlyToCenter] = useState<[number, number] | undefined>(
+    undefined
+  );
+  const [showResults, setShowResults] = useState(false);
+  let searchTimeout: number | undefined;
 
-  useEffect(() => {
+useEffect(() => {
     // Check if user has valid JWT token
 const userData = localStorage.getItem("user");
 let token = "";
@@ -106,7 +119,17 @@ if (userData) {
       console.error("Invalid user data:", error);
       handleLogout();
     }
-  }, [navigate]);
+}, [navigate]);
+  
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "online" | "offline"
+  >("all");
+
+  const filteredDevices = useMemo(() => {
+    if (filterStatus === "all") return devices;
+    return devices.filter((d) => d.status === filterStatus);
+  }, [devices, filterStatus]);
+
 
 const handleLogout = () => {
   const userData = localStorage.getItem("user");
@@ -160,6 +183,27 @@ const handleLogout = () => {
     }
   };
   
+
+  const runGeocode = async (q: string) => {
+    if (!q.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      // Free OSM geocoder (rate-limited; fine for internal use)
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          q
+        )}&limit=5`
+      );
+      const data = await resp.json();
+      setSearchResults(data || []);
+      setShowResults(true);
+    } catch (e) {
+      setSearchResults([]);
+    }
+  };
+
 const fetchUserData = async () => {
   try {
     console.log("Fetching user's dashboards and devices...");
@@ -196,26 +240,30 @@ const fetchUserData = async () => {
 
       for (const deviceInfo of devicesResult.data) {
         try {
-const live = await api.getDeviceLiveData(deviceInfo.id.id, undefined, 30);
-console.log(`Live for ${deviceInfo.name}:`, live);
+          const live = await api.getDeviceLiveData(
+            deviceInfo.id.id,
+            undefined,
+            30
+          );
+          console.log(`Live for ${deviceInfo.name}:`, live);
 
-// ✅ Detect online devices (support new grouped format)
-let isOnline = false;
+          // Detect online devices (support new grouped format)
+          let isOnline = false;
 
-if (live?.groups && Object.keys(live.groups).length > 0) {
-  // Count total keys across all groups
-  const totalKeys = Object.values(live.groups).reduce<number>(
-    (sum, group) => sum + Object.keys(group).length,
-    0
-  );
-  isOnline = totalKeys > 0;
-} else if (live?.data && Object.keys(live.data).length > 0) {
-  // fallback for older format
-  isOnline = true;
-} else if (live?.isLive || (live?.dataCount ?? 0) > 0) {
-  // very old fallback
-  isOnline = true;
-}
+          if (live?.groups && Object.keys(live.groups).length > 0) {
+            // Count total keys across all groups
+            const totalKeys = Object.values(live.groups).reduce<number>(
+              (sum, group) => sum + Object.keys(group).length,
+              0
+            );
+            isOnline = totalKeys > 0;
+          } else if (live?.data && Object.keys(live.data).length > 0) {
+            // fallback for older format
+            isOnline = true;
+          } else if (live?.isLive || (live?.dataCount ?? 0) > 0) {
+            // very old fallback
+            isOnline = true;
+          }
           const pick = (...needles: string[]) => {
             const data = live.groups || live.data || {};
             const key = Object.keys(data).find((k) =>
@@ -231,22 +279,23 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
             name: deviceInfo.name,
             type: deviceInfo.type,
             status: isOnline ? "online" : "offline",
-            // lastSeen: lastSeenText,
             location: "Loading",
-            // telemetry: {
-            //   temperature: pick("temp"),
-            //   humidity: pick("humid"),
-            //   voltage: pick("voltage", "v1n") ?? pick("voltage"),
-            // },
           };
-          // ✅ Fetch user-entered location from your backend
+          // Fetch user-entered location from your backend
           try {
             const locRes = await api.getDeviceLocation(deviceInfo.id.id);
             transformedDevice.location = locRes?.location || "Not set";
+            transformedDevice.lat =
+              typeof locRes?.lat === "number" ? locRes.lat : null;
+            transformedDevice.lng =
+              typeof locRes?.lng === "number" ? locRes.lng : null;
           } catch (err) {
             console.warn(`Failed to fetch location for ${deviceInfo.name}`);
             transformedDevice.location = "Not set";
+            transformedDevice.lat = null;
+            transformedDevice.lng = null;
           }
+
           devicesWithTelemetry.push(transformedDevice);
         } catch (telemetryError) {
           console.error(
@@ -254,15 +303,16 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
             telemetryError
           );
           // treat as offline if live fetch fails
-          devicesWithTelemetry.push({
-            id: deviceInfo.id.id,
-            name: deviceInfo.name,
-            type: deviceInfo.type,
-            status: "offline",
-            // lastSeen: "No telemetry",
-            location: deviceInfo.customerTitle || "No location set",
-            // telemetry: {},
-          });
+         devicesWithTelemetry.push({
+           id: deviceInfo.id.id,
+           name: deviceInfo.name,
+           type: deviceInfo.type,
+           status: "offline",
+           location: deviceInfo.customerTitle || "No location set",
+           lat: null,
+           lng: null,
+         });
+
         }
       }
 
@@ -292,53 +342,8 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
   }
 };
 
-
-  const formatRelativeTime = (timestamp: number): string => {
-    const now = Date.now();
-    const diffMs = now - timestamp;
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    return `${diffDays} days ago`;
-  };
-
-  const handleViewDashboard = (dashboardId: string) => {
-    navigate(`/dashboard/${dashboardId}`);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online":
-        return "bg-success";
-      case "warning":
-        return "bg-warning";
-      case "offline":
-        return "bg-destructive";
-      default:
-        return "bg-muted";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "online":
-        return "Online";
-      case "warning":
-        return "Warning";
-      case "offline":
-        return "Offline";
-      default:
-        return "Unknown";
-    }
-  };
   const onlineCount = devices.filter((d) => d.status === "online").length;
   const offlineCount = devices.filter((d) => d.status === "offline").length;
-
-
   if (isLoading) {
     return (
       <AppLayout>
@@ -368,17 +373,16 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
               Welcome, <br />
               {user?.firstName ? user.firstName.toUpperCase() : "USER"}
             </h1>
-
-            {/* <div className="flex items-center gap-4 mt-2">
-              <Badge variant="default">Authenticated</Badge>
-            </div> */}
           </div>
         </div>
 
         {/* Stats Cards */}
         <div className="grid gap-3 md:grid-cols-3">
           {/* Total */}
-          <Card className="telemetry-card">
+          <Card
+            className="telemetry-card cursor-pointer hover:bg-muted/50 transition"
+            onClick={() => navigate("/devices")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -397,7 +401,10 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
           </Card>
 
           {/* Online */}
-          <Card className="telemetry-card">
+          <Card
+            className="telemetry-card cursor-pointer hover:bg-muted/50 transition"
+            onClick={() => navigate("/devices?status=online")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -416,7 +423,10 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
           </Card>
 
           {/* Offline */}
-          <Card className="telemetry-card">
+          <Card
+            className="telemetry-card cursor-pointer hover:bg-muted/50 transition"
+            onClick={() => navigate("/devices?status=offline")}
+          >
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -435,20 +445,106 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
           </Card>
         </div>
 
-        {/* Devices Section */}
+        {/* Map Section */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">
-              Your Devices
-            </h2>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/devices")}
-              className="gap-2"
-            >
-              <Cpu className="w-4 h-4" />
-              View All Devices
-            </Button>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {/* Left: Title + Chips */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-foreground mr-2">
+                Devices Map{" "}
+                {filterStatus !== "all" && (
+                  <span className="text-muted-foreground">
+                    ({filterStatus})
+                  </span>
+                )}
+              </h2>
+
+              {/* Chips like Google categories */}
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={filterStatus === "all" ? "default" : "outline"}
+                  onClick={() => {
+                    setFilterStatus("all");
+                  }}
+                >
+                  All
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant={filterStatus === "online" ? "default" : "outline"}
+                  onClick={() => {
+                    setFilterStatus("online");
+                  }}
+                >
+                  Online
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant={filterStatus === "offline" ? "default" : "outline"}
+                  onClick={() => {
+                    setFilterStatus("offline");
+                  }}
+                >
+                  Offline
+                </Button>
+
+                {/* Go to device list with filter (like Google top chips -> list) */}
+                {/* <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (filterStatus === "all") navigate("/devices");
+                    else navigate(`/devices?status=${filterStatus}`);
+                  }}
+                >
+                  Open List
+                </Button> */}
+              </div>
+            </div>
+
+            {/* Right: Search box (like Google Maps) */}
+            {/* <div className="relative w-full md:w-96">
+              <Input
+                placeholder="Search location…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  window.clearTimeout(searchTimeout);
+                  // debounce 300ms
+                  // @ts-ignore
+                  searchTimeout = window.setTimeout(
+                    () => runGeocode(e.target.value),
+                    300
+                  );
+                }}
+                onFocus={() => searchQuery && setShowResults(true)}
+                className="pr-2"
+              />
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover p-1 shadow">
+                  {searchResults.map((r, i) => (
+                    <button
+                      key={`${r.lat}-${r.lon}-${i}`}
+                      className="block w-full text-left px-2 py-1.5 hover:bg-muted rounded"
+                      onClick={() => {
+                        const latNum = Number(r.lat),
+                          lonNum = Number(r.lon);
+                        setFlyToCenter([latNum, lonNum]); // pan the map
+                        setLat(latNum);
+                        setLng(lonNum); // prefill Add Location dialog if needed
+                        setLocationName(r.display_name || "");
+                        setShowResults(false);
+                      }}
+                    >
+                      {r.display_name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div> */}
           </div>
 
           {devices.length === 0 ? (
@@ -462,110 +558,24 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              {devices.slice(0, 6).map((device) => (
-                <Card
-                  key={device.id}
-                  className="telemetry-card cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={async () => {
-                    try {
-                      const res = await api.getDeviceLocation(device.id);
-
-                      if (res.location) {
-                        // ✅ Location already exists → just open the device
-                        navigate(`/devices/${device.id}`);
-                      } else {
-                        setSelectedDeviceId(device.id);
-                        setLocationName("");
-                        setIsLocationDialogOpen(true);
-                      }
-                    } catch (err) {
-                      toast({
-                        title: "Error",
-                        description: "Unable to check or save location.",
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">
-                          {device.name}
-                        </CardTitle>
-                        {/* <CardDescription>{device.type}</CardDescription> */}
-                      </div>
-
-                      {/* Status badge (top right) */}
-                      <div className="flex items-center">
-                        <Badge
-                          className={`capitalize px-3 py-1 text-xs font-semibold rounded-md ${
-                            device.status === "online"
-                              ? "bg-success text-success-foreground"
-                              : "bg-destructive text-destructive-foreground"
-                          }`}
-                        >
-                          {device.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="space-y-3">
-                      {/* <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Location:</span>
-                        <span className="text-foreground">
-                          {device.location}
-                        </span>
-                      </div> */}
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Location:</span>
-                        <span className="text-foreground">
-                          {device.location || "Not set"}
-                        </span>
-                      </div>
-
-                      {/* Display available telemetry */}
-                      {/* <div className="flex flex-wrap gap-2">
-                        {device.telemetry.temperature !== undefined && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Thermometer className="w-3 h-3 text-accent" />
-                            <span className="text-accent font-medium">
-                              {device.telemetry.temperature.toFixed(1)}°C
-                            </span>
-                          </div>
-                        )}
-
-                        {device.telemetry.humidity !== undefined && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Droplets className="w-3 h-3 text-primary" />
-                            <span className="text-primary font-medium">
-                              {device.telemetry.humidity.toFixed(1)}%
-                            </span>
-                          </div>
-                        )}
-
-                        {device.telemetry.voltage !== undefined && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Zap className="w-3 h-3 text-warning" />
-                            <span className="text-warning font-medium">
-                              {device.telemetry.voltage.toFixed(1)}V
-                            </span>
-                          </div>
-                        )}
-                      </div> */}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <>
+              <DeviceMap
+                devices={filteredDevices}
+                onMarkerClick={(id) => navigate(`/devices/${id}`)}
+                flyToCenter={flyToCenter}
+              />
+              <div className="text-xs text-muted-foreground">
+                <span className="inline-block w-3 h-3 mr-1 align-middle rounded-sm bg-green-500"></span>{" "}
+                Online
+                <span className="inline-block w-3 h-3 mx-2 align-middle rounded-sm bg-red-500"></span>{" "}
+                Offline
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* 🗺️ Add Location Dialog */}
+      {/* Add Location Dialog */}
       <Dialog
         open={isLocationDialogOpen}
         onOpenChange={setIsLocationDialogOpen}
@@ -575,14 +585,37 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
             <DialogTitle>Add Location</DialogTitle>
           </DialogHeader>
 
-          <div className="py-2">
+          <div className="space-y-3 py-2">
             <Input
-              placeholder="Enter location name"
+              placeholder="Location label (e.g., Office)"
               value={locationName}
               onChange={(e) => setLocationName(e.target.value)}
               className="w-full"
-              autoFocus
             />
+
+            {/* 🔍 OpenStreetMap Search */}
+            <MapSearchBox
+              onSelect={(latVal, lonVal, name) => {
+                setLat(latVal);
+                setLng(lonVal);
+                setLocationName(name);
+                toast({
+                  title: "Location selected",
+                  description: `Lat: ${latVal.toFixed(
+                    5
+                  )}, Lon: ${lonVal.toFixed(5)}`,
+                });
+              }}
+            />
+
+            {/* 📍 Show Lat/Lon after selection */}
+            {lat && lng && (
+              <div className="text-sm text-muted-foreground">
+                <span>Latitude: {lat.toFixed(6)}</span>
+                <br />
+                <span>Longitude: {lng.toFixed(6)}</span>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -594,26 +627,33 @@ if (live?.groups && Object.keys(live.groups).length > 0) {
             </Button>
             <Button
               onClick={async () => {
-                if (!locationName.trim() || !selectedDeviceId) {
+                if (
+                  !locationName.trim() ||
+                  lat == null ||
+                  lng == null ||
+                  !selectedDeviceId
+                ) {
                   toast({
                     title: "Invalid Input",
-                    description: "Please enter a valid location name.",
+                    description:
+                      "Please select a valid location from the map search.",
                     variant: "destructive",
                   });
                   return;
                 }
 
                 try {
-                  await api.saveDeviceLocation(
-                    selectedDeviceId,
-                    locationName.trim()
-                  );
+                  await api.saveDeviceLocation(selectedDeviceId, {
+                    location: locationName.trim(),
+                    lat,
+                    lng,
+                  });
                   toast({
                     title: "Location Saved",
-                    description: `Location set as "${locationName}" successfully.`,
+                    description: `Saved "${locationName}" with coordinates.`,
                   });
                   setIsLocationDialogOpen(false);
-                  await initializeDashboard(); // refresh list
+                  await initializeDashboard();
                 } catch (err) {
                   toast({
                     title: "Save Failed",
