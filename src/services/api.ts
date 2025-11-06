@@ -2,13 +2,9 @@
 
 const BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://api.garud.cloud" // Your actual backend server:
+    ? "https://api.garud.cloud/garud" // Backend server:
     : "http://localhost:8000";      // Local development
 
-  // const BASE_URL =
-  //   process.env.NODE_ENV === "production"
-  //     ? "http://152.42.209.180:8000" // Your actual backend server
-  //     : "http://localhost:8000"; 
 // Get token from localStorage
 const getAuthToken = (role?: "admin" | "user") => {
   try {

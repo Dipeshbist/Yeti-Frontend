@@ -87,8 +87,8 @@ const fetchData = async () => {
       [
         fetch(`${baseUrl}/admin/users/pending`, { headers }),
         fetch(`${baseUrl}/admin/users/all`, { headers }),
-        fetch(`${baseUrl}/admin/tenant/dashboards`, { headers }), // ✅ admin’s own overview
-        fetch(`${baseUrl}/admin/tenant/devices`, { headers }), // ✅ admin’s own overview
+        fetch(`${baseUrl}/admin/tenant/dashboards`, { headers }), // admin’s own overview
+        fetch(`${baseUrl}/admin/tenant/devices`, { headers }), // admin’s own overview
       ]
     );
 
