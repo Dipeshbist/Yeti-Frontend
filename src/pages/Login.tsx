@@ -43,7 +43,7 @@ const Login = () => {
     try {
       const apiUrl =
         process.env.NODE_ENV === "production"
-          ? "https://api.garud.cloud"
+          ? "https://api.garud.cloud/garud"
           : "http://localhost:8000";
 
       const res = await fetch(`${apiUrl}/auth/login`, {
