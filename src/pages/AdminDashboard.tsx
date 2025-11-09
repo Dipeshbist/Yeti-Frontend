@@ -53,7 +53,7 @@ const [newDevice, setNewDevice] = useState({
   name: "",
   // label: "",
   // type: "default",
-  deviceProfileId: "ff0b6660-a596-11f0-a310-85b2fcee570f",
+  deviceProfileId: "3a8ee4d0-bd72-11f0-9002-f50358321741",
 });
 const [assignForm, setAssignForm] = useState({ customerId: "", deviceId: "" });
 const [showCustomersList, setShowCustomersList] = useState(false);
