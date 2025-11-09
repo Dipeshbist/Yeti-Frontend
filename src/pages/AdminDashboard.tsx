@@ -67,7 +67,7 @@ const [assignedDevices, setAssignedDevices] = useState<any[]>([]);
 
   const baseUrl =
     process.env.NODE_ENV === "production"
-      ? "https://api.garud.cloud/garud"
+      ? "https://api.garud.cloud"
       : "http://localhost:8000";
 
 const fetchData = async () => {
