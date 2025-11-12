@@ -400,7 +400,7 @@ useEffect(() => {
       // Fetch server attributes
       const result = await api.getDeviceAttributes(
         deviceId,
-        "SERVER_SCOPE",
+        "CLIENT_SCOPE",
         role
       );
       console.log("Device attributes result:", result);
@@ -418,7 +418,7 @@ useEffect(() => {
         console.log("No attributes found for device");
         setDeviceAttributes({
           deviceId,
-          scope: "SERVER_SCOPE",
+          scope: "CLIENT_SCOPE",
           attributes: {},
           timestamp: Date.now(),
         });
@@ -469,11 +469,11 @@ useEffect(() => {
       );
 
       const consolidatedWidget: AttributeWidget = {
-        key: "server_attributes",
-        displayName: "Server Attributes",
+        key: "CLIENT_attributes",
+        displayName: "Client Attributes",
         value: attributeParameters,
         timestamp: attributesData.timestamp,
-        category: "server",
+        category: "client",
         icon: "Settings",
         color: "text-blue-500",
       };
