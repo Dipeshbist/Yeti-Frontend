@@ -278,7 +278,7 @@ const handleViewUser = async (user: User) => {
       dashboards = await dashRes.json();
       devices = await devRes.json();
     } else if (user.customerId) {
-      // ✅ Normal user target
+      // Normal user target
       const [dashRes, devRes] = await Promise.all([
         fetch(`${baseUrl}/admin/users/${user.id}/dashboards`, { headers }),
         fetch(`${baseUrl}/admin/users/${user.id}/devices`, { headers }),
