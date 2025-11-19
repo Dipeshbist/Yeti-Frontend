@@ -36,35 +36,52 @@ export default function TelemetryDetailPage() {
   const [hours, setHours] = useState(12); // Default range 12h
 
   // ✅ Fetch telemetry history
-  const fetchTelemetryHistory = async (hrs = hours) => {
-    if (!deviceId) return;
-    try {
-      setIsLoading(true);
-      const res = await api.getDeviceHistory(deviceId, selectedKey, hrs);
-      if (res?.data) {
-        const parsed: Record<string, any[]> = {};
-        Object.entries(res.data).forEach(([key, arr]: any) => {
-          parsed[key] = (arr as any[])
-            .map((p) => ({
-              time: new Date(p.timestamp),
-              value: p.value,
-            }))
-            // ✅ Ensure oldest → newest (latest on right)
-            .sort((a, b) => a.time.getTime() - b.time.getTime());
-        });
-        setTelemetryHistory(parsed);
+const fetchTelemetryHistory = async (hrs = hours) => {
+  if (!deviceId || !selectedKey) return;
+
+  try {
+    setIsLoading(true);
+
+    const now = Date.now();
+    const startTs = now - hrs * 3600 * 1000; // convert hours → milliseconds
+
+    const res = await api.getDeviceHistory(
+      deviceId,
+      selectedKey,
+      undefined, // ❌ do NOT send hours
+      undefined, // role (optional)
+      {
+        // ⭐ Send actual time range
+        startDate: startTs.toString(),
+        endDate: now.toString(),
       }
-    } catch (e) {
-      console.error("Error fetching telemetry history:", e);
-      toast({
-        title: "Error",
-        description: "Failed to load telemetry data",
-        variant: "destructive",
+    );
+
+    if (res?.data) {
+      const parsed: Record<string, any[]> = {};
+      Object.entries(res.data).forEach(([key, arr]: any) => {
+        parsed[key] = arr
+          .map((p: any) => ({
+            time: new Date(p.timestamp),
+            value: p.value,
+          }))
+          .sort((a, b) => a.time.getTime() - b.time.getTime());
       });
-    } finally {
-      setIsLoading(false);
+
+      setTelemetryHistory(parsed);
     }
-  };
+  } catch (e) {
+    console.error("Error fetching telemetry history:", e);
+    toast({
+      title: "Error",
+      description: "Failed to load telemetry data",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchTelemetryHistory(hours);
@@ -98,6 +115,20 @@ export default function TelemetryDetailPage() {
 
   // ✅ Theme-safe color for labels
   const labelColor = theme === "dark" ? "#a3a3a3" : "#555";
+
+  const safeTick = (v: any) => {
+    try {
+      const d = v instanceof Date ? v : new Date(v);
+      return d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch {
+      return "";
+    }
+  };
+
 
   return (
     <AppLayout>
@@ -175,14 +206,7 @@ export default function TelemetryDetailPage() {
                   />
                   <XAxis
                     dataKey="time"
-                    tickFormatter={(v) =>
-                      new Date(v).toLocaleTimeString("en-GB", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })
-                    }
-                    interval="preserveStartEnd"
+                    tickFormatter={safeTick}
                     ticks={computeTicks(telemetryHistory[selectedKey])}
                     tick={{ fill: labelColor, fontSize: 12 }}
                     tickMargin={12}
@@ -197,6 +221,7 @@ export default function TelemetryDetailPage() {
                       },
                     }}
                   />
+
                   <YAxis
                     width={1}
                     tick={{ fill: labelColor, fontSize: 12 }}
@@ -205,7 +230,7 @@ export default function TelemetryDetailPage() {
                       value: `Value ${detectUnit(selectedKey)}`,
                       angle: -90,
                       position: "left",
-                      offset: 44,
+                      offset: 56,
                       style: {
                         fill: labelColor,
                         fontSize: 12,

@@ -40,18 +40,24 @@ export function MapSearchBox({
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSearch();
           }}
+          className="map-search-input"
         />
+
         <Button onClick={handleSearch} disabled={loading}>
           {loading ? "..." : "Search"}
         </Button>
       </div>
 
       {results.length > 0 && (
-        <div className="max-h-48 overflow-auto border rounded-md p-1 bg-popover shadow">
+        <div
+          className="max-h-48 overflow-auto rounded-md p-1 shadow
+                        bg-popover text-popover-foreground border"
+        >
           {results.map((r) => (
             <button
               key={r.place_id}
-              className="block w-full text-left px-2 py-1.5 hover:bg-muted rounded"
+              className="block w-full text-left px-2 py-1.5 rounded
+                         hover:bg-muted hover:text-foreground"
               onClick={() => {
                 onSelect(Number(r.lat), Number(r.lon), r.display_name);
                 setResults([]);

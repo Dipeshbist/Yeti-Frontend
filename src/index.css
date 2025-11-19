@@ -373,3 +373,90 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   70% { transform: translateY(-4px); }
   100% { transform: translateY(0); }
 }
+
+/* .map-search-input,
+.map-search-results button {
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--input)) !important;
+} */
+
+/* Map search input should follow normal input color */
+.map-search-input {
+  color: hsl(var(--popover-foreground)) !important;
+  background: hsl(var(--popover)) !important;
+}
+
+/* Dropdown items */
+.map-search-results button {
+  color: hsl(var(--popover-foreground)) !important;
+  background: hsl(var(--popover)) !important;
+}
+
+
+.map-search-results {
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.map-search-results button:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Fix placeholder color */
+.leaflet-control input[type="text"]::placeholder,
+.leaflet-control-geocoder input::placeholder {
+  color: #555 !important;
+}
+
+/* Placeholder should be visible */
+.leaflet-control-geocoder input::placeholder {
+  color: #777 !important;
+}
+
+/* Clear (×) button fix */
+.leaflet-control-geocoder .leaflet-control-geocoder-close {
+  color: #000 !important;
+}
+
+
+/* Force black text in the MapSearchBox input ONLY */
+.map-search-input {
+  color: #000 !important;
+  background: #fff !important;
+  border: 1px solid #ccc !important;
+}
+
+.map-search-input::placeholder {
+  color: #666 !important;
+}
+
+
+/* GEOSEARCH INPUT – FOLLOWS YOUR THEME */
+.leaflet-control-geosearch input {
+  background: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+/* GEOSEARCH DROPDOWN */
+.leaflet-control-geosearch .results {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.leaflet-control-geosearch .results > * {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.leaflet-control-geosearch .results > *:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* PLACEHOLDER TEXT */
+.leaflet-control-geosearch input::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}

@@ -9,11 +9,13 @@ import {
   Sun,
   ToggleRight,
   Battery,
+  Clock,
+  SquareStack,
 } from "lucide-react";
 
 interface MetricCardProps {
   title: string;
-  value: number;
+  value: number | string;
   unit?: string;
   icon?: string; // optional icon name
   color?: string;
@@ -36,6 +38,8 @@ export default function MetricCard({
     Sun,
     ToggleRight,
     Battery,
+    Clock,
+    SquareStack,
   };
 
   const Icon = IconMap[icon] || Droplets;
@@ -77,7 +81,7 @@ export default function MetricCard({
           className="text-3xl sm:text-3xl font-bold whitespace-nowrap flex items-center gap-1 leading-tight"
           style={{ color }}
         >
-          {Number.isFinite(value) ? value.toFixed(1) : "--"}
+          {typeof value === "number" ? value.toFixed(2) : value}
           <span className="text-lg font-medium text-muted-foreground">
             {shortUnit}
           </span>

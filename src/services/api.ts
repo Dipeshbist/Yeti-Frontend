@@ -362,8 +362,8 @@ export const api = {
     return await response.json();
   },
 
-  // ✅ Save device location (auto-fills via backend)
-  // ✅ Save device location with precise coordinates
+  // Save device location (auto-fills via backend)
+  // Save device location with precise coordinates
   saveDeviceLocation: (
     deviceId: string,
     payload: { location: string; lat: number; lng: number }

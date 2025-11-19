@@ -886,6 +886,28 @@ useEffect(() => {
     </div>
   );
 
+const formatUptime = (seconds: number): string => {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0 || d > 0) parts.push(`${h}h`);
+  if (m > 0 || h > 0 || d > 0) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+
+  return parts.join(" ");
+};
+
+
+  const convertHeapToKB = (value: number): number => {
+    return value / 1000;
+  };
+
+
+
   return (
     <AppLayout>
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -922,7 +944,7 @@ useEffect(() => {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-         
+
               <Badge
                 className={`capitalize px-3 py-1 text-xs font-semibold rounded-md ${
                   device.status === "online"
@@ -969,8 +991,20 @@ useEffect(() => {
                           <CardContent className="p-2 flex flex-col items-center justify-center text-center">
                             <MetricCard
                               title={cleanMetricName(key.split("/")[1] || key)}
-                              value={Number(param.value) || 0}
-                              unit={param.unit || extractUnit(key)}
+                              value={
+                                key.includes("up_time")
+                                  ? formatUptime(Number(param.value)) // uptime formatted
+                                  : key.includes("free_heap")
+                                  ? convertHeapToKB(Number(param.value)) // free_heap in KB
+                                  : Number(param.value)
+                              }
+                              unit={
+                                key.includes("up_time")
+                                  ? "" // no unit for formatted uptime
+                                  : key.includes("free_heap")
+                                  ? "KB" // updated heap unit
+                                  : param.unit || extractUnit(key)
+                              }
                               icon={getIconForKey(key)}
                               color={
                                 key.toLowerCase().includes("temp")
@@ -1182,6 +1216,9 @@ const getIconForKey = (key: string): string => {
   if (lowerKey.includes("light")) return "Sun";
   if (lowerKey.includes("relay")) return "ToggleRight";
   if (lowerKey.includes("units") || lowerKey.includes("energy")) return "Battery";
+  if (lowerKey.includes("free_heap")) return "SquareStack";
+  if (lowerKey.includes("up_time")) return "Clock";
+
   return "Cpu"; // default fallback
 };
 

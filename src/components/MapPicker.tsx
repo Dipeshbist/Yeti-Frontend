@@ -99,8 +99,6 @@ mapRef.current.on("click", async (e: any) => {
   const label = await reverseGeocode(lat, lng);
   onSelect(lat, lng, label);
 });
-
-
       // ✅ Add search bar
       const provider = new OpenStreetMapProvider();
       // @ts-ignore
